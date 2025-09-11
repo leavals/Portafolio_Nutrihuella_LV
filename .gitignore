@@ -43,3 +43,6 @@ backend/nul
 
 # Logs
 *.log
+
+# root env
+/.env

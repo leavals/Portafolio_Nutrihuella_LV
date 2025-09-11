@@ -1,24 +1,29 @@
 import type { Config } from "tailwindcss";
 
-const config: Config = {
-  content: ["./src/**/*.{ts,tsx}"],
+export default {
+  content: [
+    "./src/app/**/*.{ts,tsx}",
+    "./src/components/**/*.{ts,tsx}",
+  ],
   theme: {
     extend: {
       colors: {
-        nh: {
-          teal:  "#0E7C86", // títulos / botones secundarios
-          green: "#2ECC71", // CTA primario
-          dark:  "#0C3B3E", // texto fuerte
-          orange:"#F39C12", // iconos / llamado
-          coral: "#E74C3C", // alertas
-          ink:   "#111111",
-          gray:  "#62676C",
-          bg:    "#F5FAF9", // fondo suave
-          cream: "#FFF8EB", // crema para secciones
+        brand: {
+          teal: "#10776F",
+          tealDark: "#0C5B56",
+          orange: "#F39C12",
+          cream: "#FFF8EB",
+          ink: "#111827",
+          gray: "#6B7280",
         },
+      },
+      boxShadow: {
+        soft: "0 10px 25px -10px rgba(16,119,111,0.15)",
+      },
+      borderRadius: {
+        xl2: "1.25rem",
       },
     },
   },
   plugins: [],
-};
-export default config;
+} satisfies Config;

@@ -1,15 +1,14 @@
 import type { Metadata } from "next";
-import "./globals.css";
+import AuthProvider from "@/lib/auth-context";
 
-export const metadata: Metadata = {
-  title: "NutriHuella",
-  description: "Alimentación natural personalizada para tu perro",
-};
+export const metadata: Metadata = { title: "NutriHuella" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <body className="min-h-screen">{children}</body>
+      <body>
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }

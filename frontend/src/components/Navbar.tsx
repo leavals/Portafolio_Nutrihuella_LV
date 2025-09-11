@@ -1,28 +1,33 @@
 "use client";
 
-/**
- * Barra superior simple, con logo, enlaces y botón "Iniciar sesión".
- * Se alinea a la maqueta (tipografía limpia, colores de marca).
- */
+import Link from "next/link";
+import { useAuth } from "@/lib/auth-context";
+import { PawPrint, LogOut } from "lucide-react";
+
 export default function Navbar() {
+  const { user, logout } = useAuth();
+
   return (
-    <header className="w-full bg-white/80 backdrop-blur border-b border-black/5">
-      <nav className="container-nh py-4 flex items-center justify-between">
-        {/* Logo (puedes reemplazar 🐾 por tu SVG) */}
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-nh-teal grid place-content-center text-white">
-            🐾
-          </div>
-          <span className="text-2xl font-semibold text-nh-dark">NutriHuella</span>
+    <header className="sticky top-0 z-40 bg-white/80 backdrop-blur border-b border-gray-100">
+      <nav className="mx-auto max-w-6xl px-4 flex items-center justify-between h-16">
+        <Link href="/" className="flex items-center gap-2">
+          <PawPrint className="text-emerald-600" />
+          <span className="font-semibold">NutriHuella</span>
+        </Link>
+
+        <div className="flex items-center gap-2">
+          <Link className="px-3 py-2 rounded hover:bg-gray-100" href="/dashboard">Dashboard</Link>
+          {user ? (
+            <>
+              <span className="text-sm text-gray-600 hidden sm:inline">{user.email}</span>
+              <button onClick={logout} className="px-3 py-2 rounded border hover:bg-gray-50">
+                <LogOut className="mr-2 h-4 w-4 inline-block" />Salir
+              </button>
+            </>
+          ) : (
+            <Link className="px-3 py-2 rounded bg-emerald-600 text-white" href="/login">Iniciar sesión</Link>
+          )}
         </div>
-
-        <ul className="hidden md:flex items-center gap-8 text-nh-dark/80">
-          <li className="hover:text-nh-dark transition-colors"><a href="#">Inicio</a></li>
-          <li className="hover:text-nh-dark transition-colors"><a href="#">Ficha Clínica</a></li>
-          <li className="hover:text-nh-dark transition-colors"><a href="#">Recetas</a></li>
-        </ul>
-
-        <a href="#login" className="btn-secondary">Iniciar sesión</a>
       </nav>
     </header>
   );

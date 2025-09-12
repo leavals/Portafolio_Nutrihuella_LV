@@ -1,0 +1,48 @@
+# OS/editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build & caches
+.next/
+.turbo/
+.cache/
+dist/
+coverage/
+
+# Frontend caches/artefactos extra
+frontend/.next/
+frontend/.vercel/
+frontend/out/
+frontend/.turbo/
+frontend/.cache/
+frontend/next
+frontend/frontend@0.1.0
+
+# Env (no subir reales)
+backend/.env
+frontend/.env
+frontend/.env.local
+*.env.local
+
+# Prisma / SQLite DB (no subir la BD)
+backend/prisma/*.db
+backend/prisma/*.db-journal
+backend/prisma/*.sqlite
+
+# COSA RARA EN WINDOWS
+backend/nul
+
+# Logs
+*.log
+
+# root env
+/.env

@@ -1,0 +1,107 @@
+datasource db { provider = "sqlite"; url = env("DATABASE_URL") }
+generator client { provider = "prisma-client-js" }
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String?
+  name         String?
+  googleId     String?  @unique
+  picture      String?
+  pets         Pet[]
+  resetTokens  PasswordResetToken[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Pet {
+  id        String   @id @default(cuid())
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id])
+  name      String
+  species   String   @default("DOG")
+  sex       String?
+  breed     String?
+  age       Int?
+  weightKg  Float?
+  clinical  ClinicalRecord?
+  nutrition NutritionProfile?
+  vaccines  Vaccination[]
+  diseases  Disease[]
+  weights   Weight[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([ownerId])
+}
+
+model ClinicalRecord {
+  id                String  @id @default(cuid())
+  petId             String  @unique
+  pet               Pet     @relation(fields: [petId], references: [id])
+  allergies         String?
+  chronicConditions String?
+  medications       String?
+  surgeries         String?
+  lastVetVisit      DateTime?
+  lastDeworming     DateTime?
+  lastFleaTick      DateTime?
+  bloodType         String?
+  vetClinic         String?
+  vetPhone          String?
+  notes             String?
+}
+
+model Vaccination {
+  id    String   @id @default(cuid())
+  petId String
+  pet   Pet      @relation(fields: [petId], references: [id])
+  name  String
+  date  DateTime
+  @@index([petId])
+}
+
+model Disease {
+  id          String   @id @default(cuid())
+  petId       String
+  pet         Pet      @relation(fields: [petId], references: [id])
+  name        String
+  diagnosedAt DateTime
+  status      String   @default("ACTIVE")
+  @@index([petId])
+}
+
+model Weight {
+  id       String   @id @default(cuid())
+  petId    String
+  pet      Pet      @relation(fields: [petId], references: [id])
+  date     DateTime
+  weightKg Float
+  @@index([petId])
+}
+
+model NutritionProfile {
+  id             String  @id @default(cuid())
+  petId          String  @unique
+  pet            Pet     @relation(fields: [petId], references: [id])
+  dietType       String  @default("RAW")
+  mealsPerDay    Int     @default(2)
+  activityLevel  String  @default("MODERATE")
+  goal           String  @default("MAINTENANCE")
+  foodAllergies  String?
+  intolerances   String?
+  forbiddenFoods String?
+  preferredFoods String?
+  supplements    String?
+  dailyCalories  Int?
+  waterIntakeMl  Int?
+  notes          String?
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+}

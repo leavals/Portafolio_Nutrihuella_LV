@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---------- Paleta base (por si quieres usar variables CSS) ---------- */
+:root{
+  --brand-teal:#10776F;
+  --brand-teal-dark:#0C5B56;
+  --brand-orange:#F39C12;
+  --brand-cream:#FFF8EB;
+  --brand-ink:#111827;
+}
+
+/* ---------- Estética general ---------- */
+html, body {
+  @apply bg-[var(--brand-cream)] text-brand-ink antialiased;
+}
+
+.container-app{
+  @apply max-w-6xl mx-auto px-4 sm:px-6 lg:px-8;
+}
+
+/* ---------- Tarjetas ---------- */
+.card {
+  @apply bg-white rounded-2xl shadow-soft border border-gray-100;
+}
+
+/* ---------- Botones ---------- */
+.btn {
+  @apply inline-flex items-center justify-center rounded-xl px-4 py-2 font-medium transition;
+}
+.btn-primary{
+  @apply bg-brand-teal text-white hover:bg-brand-teal-dark;
+}
+.btn-outline{
+  @apply border border-brand-teal text-brand-teal hover:bg-brand-teal hover:text-white;
+}
+.btn-danger{
+  @apply bg-red-600 text-white hover:bg-red-700;
+}
+.btn-ghost{
+  @apply text-brand-teal hover:bg-brand-teal/10;
+}
+
+/* ---------- Inputs ---------- */
+.input, .select, .textarea{
+  @apply w-full rounded-xl border border-gray-200 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-brand-teal/30 focus:border-brand-teal;
+}
+.label{
+  @apply block text-sm font-medium text-brand-ink/80 mb-1;
+}
+.help{
+  @apply text-xs text-brand-gray mt-1;
+}
+
+/* ---------- Tabs ---------- */
+.tabs{
+  @apply flex gap-2 border-b border-gray-200;
+}
+.tab{
+  @apply px-3 py-2 -mb-px border-b-2 border-transparent text-sm font-medium text-brand-gray hover:text-brand-ink cursor-pointer;
+}
+.tab.active{
+  @apply text-brand-ink border-brand-teal;
+}

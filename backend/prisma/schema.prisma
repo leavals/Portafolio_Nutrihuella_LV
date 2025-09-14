@@ -1,3 +1,9 @@
+// ==============================================
+// NutriHuella – Prisma schema
+// Sprint 3: Despensa general por usuario (PantryItem)
+//  - Endpoints filtran por mascota usando NutritionProfile
+// ==============================================
+
 datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
@@ -15,6 +21,7 @@ model User {
   googleId     String?  @unique
   picture      String?
   pets         Pet[]
+  pantry       PantryItem[]   // 👈 despensa general del usuario
   resetTokens  PasswordResetToken[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -30,16 +37,38 @@ model Pet {
   breed     String?
   age       Int?
   weightKg  Float?
-  photoUrl  String?   // 👈 NUEVO
   clinical  ClinicalRecord?
   nutrition NutritionProfile?
   vaccines  Vaccination[]
   diseases  Disease[]
   weights   Weight[]
+  photoUrl  String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([ownerId])
+}
+
+model PantryItem {
+  id          String   @id @default(cuid())
+  ownerId     String
+  owner       User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name        String
+  // Para facilitar matching en Sprint 4 (IA) guardamos nombre normalizado y keywords CSV
+  normalized  String?
+  keywordsCsv String?  // ej: "pollo,pechuga,ave"
+  quantity    Float?
+  unit        String?  // g | kg | ml | L | unid
+  category    String?  // PROTEIN | VEGGIE | FRUIT | CARB | FAT | SUPPLEMENT ...
+  purchasedAt DateTime?
+  expiresAt   DateTime?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([ownerId])
+  @@index([expiresAt])
+  @@index([category])
 }
 
 model ClinicalRecord {
@@ -65,6 +94,7 @@ model Vaccination {
   pet   Pet      @relation(fields: [petId], references: [id])
   name  String
   date  DateTime
+
   @@index([petId])
 }
 
@@ -74,7 +104,7 @@ model Disease {
   pet         Pet      @relation(fields: [petId], references: [id])
   name        String
   diagnosedAt DateTime
-  status      String   @default("ACTIVE")
+  status      String   @default("ACTIVE") // ACTIVE | RESOLVED
   @@index([petId])
 }
 
@@ -84,6 +114,7 @@ model Weight {
   pet      Pet      @relation(fields: [petId], references: [id])
   date     DateTime
   weightKg Float
+
   @@index([petId])
 }
 
@@ -95,10 +126,10 @@ model NutritionProfile {
   mealsPerDay    Int     @default(2)
   activityLevel  String  @default("MODERATE")
   goal           String  @default("MAINTENANCE")
-  foodAllergies  String?
-  intolerances   String?
-  forbiddenFoods String?
-  preferredFoods String?
+  foodAllergies  String?   // CSV; ej: "pollo,gluten,maní"
+  intolerances   String?   // CSV
+  forbiddenFoods String?   // CSV; ej: "chocolate,uva,cebolla"
+  preferredFoods String?   // CSV; ej: "pavo,zanahoria,arroz"
   supplements    String?
   dailyCalories  Int?
   waterIntakeMl  Int?

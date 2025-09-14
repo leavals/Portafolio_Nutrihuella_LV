@@ -1,24 +1,19 @@
-import type { Metadata } from "next";
-import "./../styles/globals.css";
-import Navbar from "@/components/Navbar";
+import "./globals.css";
 import Providers from "./providers";
+import Navbar from "@/components/Navbar";
 
-export const metadata: Metadata = {
+export const metadata = {
   title: "NutriHuella",
-  description: "Alimentación natural personalizada para tu mascota",
+  description: "Nutrición natural personalizada para tu mascota",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es-CL">
-      <body className="min-h-screen bg-[var(--nh-cream)] text-[var(--nh-ink)] antialiased">
-        {/* 👇 Todo el árbol queda bajo <AuthProvider/> */}
+    <html lang="es">
+      <body className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
         <Providers>
           <Navbar />
-          <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
-          <footer className="mx-auto max-w-6xl px-4 py-10 text-sm text-slate-500">
-            © {new Date().getFullYear()} NutriHuella — Proyecto académico.
-          </footer>
+          <main className="container py-6">{children}</main>
         </Providers>
       </body>
     </html>

@@ -1,41 +1,38 @@
-# ───────── General
+# --- Dependencias / builds ---
+node_modules/
+dist/
+.build/
+.next/
+.turbo/
+.vercel/
+
+# --- Logs y OS ---
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 .DS_Store
 Thumbs.db
-*.log
-*.tmp
 
-# ───────── Node / Monorepo
-node_modules/
-**/node_modules/
-npm-debug.log*
-yarn-debug.log*
-pnpm-debug.log*
-
-# ───────── Env (NO subir)
+# --- Entornos / secretos ---
 .env
-**/.env
-**/.env.local
-**/.env.development
-**/.env.production
+.env.*
+backend/.env
+backend/.env.*
+frontend/.env
+frontend/.env.*
 
-# ───────── Next.js (frontend)
-frontend/.next/
-frontend/.vercel/
-frontend/.turbo/
-frontend/out/
-
-# ───────── Build cache
-**/.cache/
-**/.parcel-cache/
-
-# ───────── Prisma / DB (sí subir migraciones, NO el archivo DB)
-backend/prisma/dev.db
-backend/prisma/dev.db-journal
-
-# ───────── Subidas de usuario (NO versionar)
+# --- Subidas locales ---
 backend/uploads/
+**/uploads/
 
-# ───────── Sistemas / IDE
+# --- Bases de datos locales (SQLite) ---
+backend/prisma/*.db
+backend/prisma/*.db-journal
+backend/prisma/*.sqlite
+backend/prisma/*.sqlite-*
+backend/prisma/*-shm
+backend/prisma/*-wal
+
+# --- Cachés de IDE ---
 .vscode/
 .idea/
-*.swp

@@ -1,5 +1,9 @@
+// backend/src/routes/pets.routes.ts
 import { Router } from 'express';
 import { z } from 'zod';
+import multer from 'multer';
+import path from 'node:path';
+import fs from 'node:fs';
 import { authGuard } from '../middleware/auth.middleware.js';
 import {
   listPets, createPet, getPet, updatePet, deletePet,
@@ -8,6 +12,7 @@ import {
   addDisease, listDiseases, updateDisease, deleteDisease,
   addWeight, listWeights, deleteWeight,
   getNutrition, upsertNutrition,
+  uploadPetPhoto,
 } from '../controllers/pets.controller.js';
 import { CreatePetSchema, UpdatePetSchema } from '../schemas/pet.schema.js';
 import { UpsertClinicalSchema, VaccinationSchema, DiseaseSchema, WeightLogSchema } from '../schemas/clinical.schema.js';
@@ -18,6 +23,19 @@ const validate = (schema: z.ZodSchema) => (req: any, res: any, next: any) => {
   if (!parsed.success) return res.status(400).json(parsed.error.format());
   req.body = parsed.data; next();
 };
+
+// --- Multer para fotos ---
+const uploadsDir = path.resolve('uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, uploadsDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname || '');
+    cb(null, `${req.params.petId}-${Date.now()}${ext}`);
+  },
+});
+const upload = multer({ storage });
 
 const r = Router();
 r.use(authGuard);
@@ -48,5 +66,8 @@ r.delete('/:petId/clinical/weights/:weightId', deleteWeight);
 
 r.get('/:petId/nutrition', getNutrition);
 r.put('/:petId/nutrition', validate(UpsertNutritionSchema), upsertNutrition);
+
+// Foto de mascota
+r.post('/:petId/photo', upload.single('file'), uploadPetPhoto);
 
 export default r;

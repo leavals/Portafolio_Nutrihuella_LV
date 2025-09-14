@@ -1,6 +1,7 @@
 // backend/src/controllers/pets.controller.ts
 // ------------------------------------------------------------
 // Controladores de Mascotas, Ficha Clínica y Ficha Nutricional
+// + Subida de foto de mascota
 // ------------------------------------------------------------
 // - Compatibles con SQLite (arreglos guardados como JSON-string).
 // - Requiere middleware authGuard que setea (req as any).userId.
@@ -389,4 +390,24 @@ export async function upsertNutrition(req: Request, res: Response) {
     foodAllergies:  JSONText.fromText(np.foodAllergies),
     supplements:    JSONText.fromText(np.supplements),
   });
+}
+
+// ============================================================
+//                         FOTO DE MASCOTA
+// ============================================================
+
+export async function uploadPetPhoto(req: Request, res: Response) {
+  const userId = (req as any).userId as string;
+  const { petId } = req.params;
+  const file = (req as any).file as Express.Multer.File | undefined;
+
+  if (!file) return res.status(400).json({ message: 'Archivo requerido' });
+
+  const pet = await prisma.pet.findFirst({ where: { id: petId, ownerId: userId } });
+  if (!pet) return res.sendStatus(404);
+
+  const url = `/uploads/${file.filename}`;
+  await prisma.pet.update({ where: { id: petId }, data: { photoUrl: url } });
+
+  return res.json({ photoUrl: url });
 }

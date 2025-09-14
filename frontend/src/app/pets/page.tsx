@@ -58,7 +58,7 @@ export default function PetViewPage() {
     return (
       <div className="space-y-3">
         <p className="text-sm text-red-600">{err}</p>
-        <Link href="/pets" className="underline">← Volver a mascotas</Link>
+        <Link href="/dashboard" className="underline">← Volver a mascotas</Link>
       </div>
     );
   }
@@ -66,7 +66,7 @@ export default function PetViewPage() {
 
   return (
     <div className="space-y-4">
-      <Link href="/pets" className="text-sm underline">← Volver a mascotas</Link>
+      <Link href="/dashboard" className="text-sm underline">← Volver a mascotas</Link>
       <h1 className="text-2xl font-semibold">Ficha de Mascota — {pet.name}</h1>
 
       <Card>
@@ -84,8 +84,13 @@ export default function PetViewPage() {
             <Info label="Edad" value={pet.age != null ? `${pet.age} años` : "—"} />
             <Info label="Peso" value={pet.weightKg != null ? `${pet.weightKg} kg` : "—"} />
           </div>
+          <div className="shrink-0">
+            <Link href={`/pets/${pet.id}/edit`} className="btn btn-primary">Editar</Link>
+          </div>
         </div>
       </Card>
+
+      
     </div>
   );
 }

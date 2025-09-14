@@ -1,41 +1,67 @@
+// frontend/src/components/ui.tsx
 "use client";
-import { clsx } from "clsx";
+import clsx from "clsx";
+import React, { cloneElement, isValidElement } from "react";
 
-export function Field({ label, children, help }: { label: string; children: React.ReactNode; help?: string; }) {
+export function Card(props: React.HTMLAttributes<HTMLDivElement>) {
+  const { className, ...rest } = props;
   return (
-    <label className="block">
-      <span className="label">{label}</span>
+    <div
+      {...rest}
+      className={clsx(
+        "rounded-2xl border bg-white p-4 shadow-soft",
+        className
+      )}
+    />
+  );
+}
+
+type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  asChild?: boolean;
+  variant?: "primary" | "outline" | "ghost" | "danger";
+};
+
+export function Button({ asChild, variant = "primary", className, children, ...rest }: ButtonProps) {
+  const base =
+    variant === "primary" ? "btn btn-primary" :
+    variant === "outline" ? "btn btn-outline" :
+    variant === "danger"  ? "btn btn-danger"  : "btn btn-ghost";
+
+  if (asChild && isValidElement(children)) {
+    return cloneElement(children as any, {
+      className: clsx(base, (children as any).props?.className),
+    });
+  }
+  return (
+    <button {...rest} className={clsx(base, className)}>
       {children}
-      {help && <p className="help">{help}</p>}
+    </button>
+  );
+}
+
+export function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block space-y-1">
+      <span className="text-sm text-slate-600">{label}</span>
+      {children}
     </label>
   );
 }
 
 export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
-  return <input {...props} className={clsx("input", props.className)} />;
+  const { className, ...rest } = props;
+  return (
+    <input
+      {...rest}
+      className={clsx(
+        "input",
+        className
+      )}
+    />
+  );
 }
 
 export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select {...props} className={clsx("select", props.className)} />;
-}
-
-export function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea {...props} className={clsx("textarea", props.className)} />;
-}
-
-export function Card({ children, className }: { children: React.ReactNode; className?: string; }) {
-  return <div className={clsx("card p-5", className)}>{children}</div>;
-}
-
-export function SectionTitle({ children }: { children: React.ReactNode }) {
-  return <h2 className="text-xl font-semibold mb-3">{children}</h2>;
-}
-
-export function Button(props: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "outline" | "danger" | "ghost" }) {
-  const v = props.variant ?? "primary";
-  const base = v === "primary" ? "btn btn-primary" :
-               v === "outline" ? "btn btn-outline" :
-               v === "danger" ? "btn btn-danger" : "btn btn-ghost";
   const { className, ...rest } = props;
-  return <button {...rest} className={clsx(base, className)} />;
+  return <select {...rest} className={clsx("select", className)} />;
 }

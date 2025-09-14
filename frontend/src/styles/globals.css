@@ -1,0 +1,57 @@
+/* frontend/src/styles/globals.css - Tailwind v4 */
+@import "tailwindcss";
+
+/* ===================== */
+/*   NutriHuella  Pro    */
+/* ===================== */
+:root{
+  /* Colores base */
+  --nh-primary: #2563EB;  /* Azul corporativo */
+  --nh-primary-d: #1E40AF;/* Hover/activo */
+  --nh-accent:  #10B981;  /* Verde salud/éxito */
+  --nh-surface: #F5F7FB;  /* Fondo suave profesional */
+  --nh-card:    #FFFFFF;  /* Tarjetas */
+  --nh-ink:     #0F172A;  /* Texto principal */
+  --nh-muted:   #64748B;  /* Texto secundario */
+  --nh-danger:  #EF4444;  /* Errores */
+}
+
+html, body { height: 100%; }
+body {
+  color: var(--nh-ink);
+  background: var(--nh-surface);
+  font-feature-settings: "rlig" 1,"calt" 1;
+}
+
+/* ---------- Form ---------- */
+.input {
+  @apply w-full rounded-xl border px-3 py-2 outline-none transition bg-white;
+  @apply border-slate-300 focus:ring-2 focus:ring-[color:var(--nh-primary)];
+}
+.input[aria-invalid="true"] { @apply border-[var(--nh-danger)]; }
+.label { @apply block text-sm font-medium text-slate-700; }
+.help  { @apply text-xs text-slate-500; }
+
+/* ---------- Buttons ---------- */
+.btn {
+  @apply inline-flex items-center justify-center rounded-xl px-4 py-2 font-semibold transition
+  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2;
+}
+.btn-primary {
+  background: var(--nh-primary); color: #fff;
+}
+.btn-primary:hover { background: var(--nh-primary-d); }
+.btn-outline {
+  @apply border border-slate-300 bg-white text-slate-800;
+}
+.btn-outline:hover { @apply bg-slate-50; }
+.btn-ghost {
+  @apply text-slate-700 hover:bg-slate-100;
+}
+.btn-danger {
+  background: var(--nh-danger); color: #fff;
+}
+.btn-danger:hover { filter: brightness(0.95); }
+
+/* ---------- Card ---------- */
+.card { @apply bg-[color:var(--nh-card)] rounded-2xl shadow p-6; }

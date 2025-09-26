@@ -1,21 +1,22 @@
-import "./globals.css";
-import Providers from "./providers";
-import Navbar from "@/components/Navbar";
-
-export const metadata = {
-  title: "NutriHuella",
-  description: "Nutrición natural personalizada para tu mascota",
-};
+// src/app/layout.tsx
+import './globals.css'
+import Navbar from '@/components/Navbar'
+import AuthProvider from '@/lib/auth-context' // <-- tu AuthProvider (el archivo que pegaste)
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <body className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
-        <Providers>
+      <body className="text-slate-800">
+        {/* Fondo + overlay (para el look del mockup) */}
+        <div aria-hidden className="fixed inset-0 -z-10 bg-center bg-cover"
+             style={{ backgroundImage: "url('/nutrihuella/dog-bg.png')" }} />
+        <div className="fixed inset-0 -z-10 bg-black/30" />
+
+        <AuthProvider>
           <Navbar />
-          <main className="container py-6">{children}</main>
-        </Providers>
+          <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">{children}</main>
+        </AuthProvider>
       </body>
     </html>
-  );
+  )
 }

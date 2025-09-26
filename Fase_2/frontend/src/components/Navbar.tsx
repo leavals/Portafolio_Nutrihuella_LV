@@ -1,144 +1,166 @@
-"use client";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
-import { useAuth } from "@/lib/auth-context";
-import { PawPrint, Home, ShoppingBasket, Menu, X } from "lucide-react";
+'use client'
 
-function NavItem({ href, children, exact=false }:{
-  href:string; children:React.ReactNode; exact?:boolean;
-}){
-  const pathname = usePathname();
-  const active = exact ? pathname === href : pathname.startsWith(href);
+import Link from 'next/link'
+import Image from 'next/image'
+import { usePathname } from 'next/navigation'
+import { useEffect, useRef, useState } from 'react'
+import {
+  Menu,
+  Search,
+  LogOut,
+  User2,
+  PawPrint,
+  UserCircle2,
+  Heart,
+} from 'lucide-react'
+import { useAuth } from '@/lib/auth-context'
+
+type NavItem = { href: string; label: string; Icon: React.ComponentType<any> }
+
+const authNav: NavItem[] = [
+  { href: '/profile',           label: 'Mi perfil',          Icon: UserCircle2 },
+  { href: '/pets',              label: 'Mis mascotas',       Icon: PawPrint },
+  { href: '/recipes/favorites', label: 'Recetas favoritas',  Icon: Heart },
+]
+
+export default function Navbar() {
+  const pathname = usePathname()
+  const { user, loading, displayName, logout, isAuthenticated } = useAuth()
+
+  const [open, setOpen] = useState(false)
+  const popRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (!popRef.current) return
+      if (!popRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('click', onClick)
+    return () => document.removeEventListener('click', onClick)
+  }, [])
+
   return (
-    <Link
-      href={href}
-      className={[
-        "px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-        active
-          ? "bg-[var(--cream)] text-[var(--brand-2)] ring-1 ring-[var(--brand)]"
-          : "text-[var(--text)]/80 hover:bg-white hover:text-[var(--text)]",
-      ].join(" ")}
-    >
-      {children}
-    </Link>
-  );
-}
+    <header className="sticky top-0 z-30 w-full bg-white/80 backdrop-blur border-b border-white/50">
+      {/* Fila superior */}
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-4">
+        <Link href="/" className="flex items-center gap-3">
+          <Image
+            src="/nutrihuella/logo-mark.png"
+            alt="NutriHuella"
+            width={36}
+            height={36}
+            className="rounded-full"
+          />
+          <span className="text-2xl font-semibold tracking-tight">NutriHuella</span>
+        </Link>
 
-export default function Navbar(){
-  const { isAuthenticated, isClient, isAdmin, role, displayName, logout } = useAuth();
-  const [open, setOpen] = useState(false);
-
-  // Mostrar "Mi despensa" sólo con sesión y rol usuario (no admin)
-  const canSeePantry = isAuthenticated && (!isAdmin) && (isClient || !role);
-
-  return (
-    <header className="sticky top-0 z-40 w-full border-b border-black/5 bg-white/90 backdrop-blur">
-      <div className="container flex items-center justify-between py-3">
-        {/* Brand */}
-        <div className="flex items-center gap-2">
-          <PawPrint className="h-6 w-6 text-[var(--brand)]" aria-hidden />
-          <Link href="/" className="text-base font-semibold tracking-tight">
-            NutriHuella
-          </Link>
+        {/* Buscador */}
+        <div className="ml-auto hidden md:flex items-center gap-2 rounded-xl border bg-white/70 px-3 py-2 shadow-sm w-[520px]">
+          <Search className="h-4 w-4" />
+          <input
+            placeholder="Buscar"
+            className="w-full bg-transparent outline-none text-sm placeholder:text-slate-400"
+          />
         </div>
 
-        {/* Desktop */}
-        <nav className="hidden gap-1 md:flex">
-          <NavItem href="/" exact>
-            <span className="inline-flex items-center gap-2">
-              <Home className="h-4 w-4" /> Inicio
-            </span>
-          </NavItem>
-
-          {/* ⬇️ Ahora “Mascotas” sólo con sesión */}
-          {isAuthenticated && (
-            <NavItem href="/pets">
-              <span className="inline-flex items-center gap-2">
-                <PawPrint className="h-4 w-4" /> Mascotas
-              </span>
-            </NavItem>
-          )}
-
-          {canSeePantry && (
-            <NavItem href="/pantry">
-              <span className="inline-flex items-center gap-2">
-                <ShoppingBasket className="h-4 w-4" /> Mi despensa
-              </span>
-            </NavItem>
-          )}
-        </nav>
-
-        {/* Right zone */}
-        <div className="hidden items-center gap-3 md:flex">
-          {isAuthenticated ? (
-            <>
-              <span className="text-sm text-[var(--text)]/70 max-w-[220px] truncate" title={displayName}>
-                {displayName}
-              </span>
-              <button onClick={logout} className="btn btn-primary bg-[var(--accent)]">
-                Cerrar sesión
+        {/* Auth (desktop) */}
+        <div className="ml-2 hidden md:flex items-center gap-2">
+          {loading ? null : isAuthenticated ? (
+            <div className="relative" ref={popRef}>
+              <button
+                onClick={() => setOpen((v) => !v)}
+                className="flex items-center gap-2 rounded-xl border bg-white/80 hover:bg-white px-2 py-1.5 shadow-sm"
+                aria-haspopup="menu"
+                aria-expanded={open}
+              >
+                <Image
+                  src={user?.picture ?? '/nutrihuella/avatar-placeholder.png'}
+                  alt={displayName || 'Usuario'}
+                  width={28}
+                  height={28}
+                  className="rounded-full"
+                />
+                <span className="text-sm">{displayName || 'Mi cuenta'}</span>
+                <Menu className="h-4 w-4" />
               </button>
-            </>
-          ) : (
-            <>
-              <Link href="/login" className="btn btn-ghost">Iniciar sesión</Link>
-              <Link href="/register" className="btn btn-primary">Crear cuenta</Link>
-            </>
-          )}
-        </div>
 
-        {/* Mobile trigger */}
-        <button
-          className="inline-flex items-center justify-center rounded-lg border p-2 md:hidden"
-          onClick={()=>setOpen(v=>!v)}
-          aria-label="Abrir menú"
-        >
-          {open ? <X className="h-5 w-5"/> : <Menu className="h-5 w-5" />}
-        </button>
-      </div>
-
-      {/* Mobile menu */}
-      {open && (
-        <div className="border-t border-black/5 bg-white md:hidden">
-          <nav className="container flex flex-col gap-1 py-2">
-            <NavItem href="/" exact>
-              <span className="inline-flex items-center gap-2">
-                <Home className="h-4 w-4" /> Inicio
-              </span>
-            </NavItem>
-
-            {isAuthenticated && (
-              <NavItem href="/pets">
-                <span className="inline-flex items-center gap-2">
-                  <PawPrint className="h-4 w-4" /> Mascotas
-                </span>
-              </NavItem>
-            )}
-
-            {canSeePantry && (
-              <NavItem href="/pantry">
-                <span className="inline-flex items-center gap-2">
-                  <ShoppingBasket className="h-4 w-4" /> Mi despensa
-                </span>
-              </NavItem>
-            )}
-
-            <div className="mt-2 border-t border-black/5 pt-2">
-              {isAuthenticated ? (
-                <button onClick={logout} className="w-full btn bg-[var(--accent)] text-white">
-                  Cerrar sesión
-                </button>
-              ) : (
-                <div className="flex gap-2">
-                  <Link href="/login" className="w-full btn btn-ghost">Iniciar sesión</Link>
-                  <Link href="/register" className="w-full btn btn-primary">Crear cuenta</Link>
+              {open && (
+                <div
+                  role="menu"
+                  className="absolute right-0 mt-2 w-56 rounded-xl bg-white/90 backdrop-blur shadow-xl ring-1 ring-black/5 p-1"
+                >
+                  <Link
+                    href="/dashboard"
+                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-slate-100"
+                    onClick={() => setOpen(false)}
+                  >
+                    <User2 className="h-4 w-4" />
+                    Panel
+                  </Link>
+                  <button
+                    onClick={() => {
+                      setOpen(false)
+                      logout()
+                    }}
+                    className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Cerrar sesión
+                  </button>
                 </div>
               )}
             </div>
-          </nav>
+          ) : (
+            <>
+              {/* Iniciar sesión: blanco + borde/texto 428179 */}
+              <Link href="/login" className="btn btn-outline-primary">
+                Iniciar sesión
+              </Link>
+              {/* Crear cuenta: primario 428179 + blanco */}
+              <Link href="/register" className="btn btn-primary">
+                Crear cuenta
+              </Link>
+            </>
+          )}
         </div>
+
+        {/* Botón menú (mobile) */}
+        <button
+          className="md:hidden ml-auto rounded-xl border bg-white/80 px-3 py-2 shadow-sm"
+          onClick={() => setOpen((v) => !v)}
+          aria-label="Abrir menú"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+      </div>
+
+      {/* Submenú centrado — solo autenticado */}
+      {isAuthenticated && (
+        <nav className="border-t border-white/50">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <ul className="flex justify-center items-center gap-8 text-sm py-2 overflow-x-auto">
+              {authNav.map(({ href, label, Icon }) => {
+                const active = pathname === href
+                return (
+                  <li key={href}>
+                    <Link
+                      href={href}
+                      className={
+                        active
+                          ? 'text-[--nh-primary] font-medium inline-flex items-center gap-2'
+                          : 'hover:text-[--nh-primary] inline-flex items-center gap-2'
+                      }
+                    >
+                      <Icon className="h-4 w-4" />
+                      {label}
+                    </Link>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        </nav>
       )}
     </header>
-  );
+  )
 }

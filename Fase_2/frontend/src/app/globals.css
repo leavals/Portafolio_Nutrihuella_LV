@@ -1,48 +1,106 @@
-/* frontend/src/styles/globals.css */
-/* Tailwind v4 */
 @import "tailwindcss";
 
-/* NutriHuella Pro – paleta sobria y profesional */
+/* ===== Paleta NutriHuella ===== */
 :root{
-  --nh-primary: #2563EB;  /* azul corporativo */
-  --nh-primary-d: #1E40AF;
-  --nh-accent:  #10B981;  /* salud/éxito */
-  --nh-surface: #F8FAFC;  /* fondo suave */
-  --nh-card:    #FFFFFF;  /* tarjetas */
-  --nh-ink:     #0F172A;  /* texto principal */
-  --nh-muted:   #64748B;  /* texto secundario */
-  --nh-danger:  #EF4444;
+  --nh-primary:   #428179;  /* PRIMARIO */
+  --nh-primary-d: #376b66;  /* HOVER */
+  --nh-accent:    #F1B858;  /* ACENTO */
+
+  --nh-ink:    #4C4C4C;
+  --nh-muted:  #626262;
+  --nh-soft:   #8F8F8F;
+
+  --nh-surface:#F8F6F7;
+  --nh-card:   #FFFFFF;
+  --nh-border: #E8E8E8;
+  --nh-panel:  #F0EEEF;
+
+  --nh-danger: #EF4444;
+  --nh-glass-ring: rgba(255,255,255,.5);
 }
 
-html, body { height: 100%; }
-body {
-  color: var(--nh-ink);
-  background: var(--nh-surface);
-  font-feature-settings: "rlig" 1,"calt" 1;
+/* ===== Base ===== */
+@layer base{
+  html,body{ height:100%; }
+  body{
+    color: var(--nh-muted);
+    background: var(--nh-surface);
+    font-feature-settings:"rlig" 1,"calt" 1;
+  }
+  h1,h2,h3,h4,h5,h6{ color: var(--nh-ink); }
 }
 
-/* Componentes base que ya usas en la app */
-.input {
-  @apply w-full rounded-xl border px-3 py-2 outline-none transition bg-white;
-  @apply border-slate-300 focus:ring-2 focus:ring-[color:var(--nh-primary)];
-}
-.input[aria-invalid="true"] { @apply border-[var(--nh-danger)]; }
-.label { @apply block text-sm font-medium text-slate-700 mb-1; }
-.help  { @apply text-xs text-slate-500; }
+/* ===== Componentes ===== */
+@layer components{
+  .input{
+    @apply w-full rounded-xl border px-3 py-2 outline-none transition bg-white border-[--nh-border];
+    @apply focus:ring-2 ring-[--nh-primary];
+    border-color: var(--nh-border);
+  }
+  .input[aria-invalid="true"]{ border-color: var(--nh-danger); }
 
-.btn {
-  @apply inline-flex items-center justify-center rounded-xl px-4 py-2 font-semibold transition
-  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2;
-}
-.btn-primary {
-  background: var(--nh-primary); color: white;
-}
-.btn-primary:hover { background: var(--nh-primary-d); }
-.btn-outline {
-  @apply border border-slate-300 bg-white text-slate-800;
-}
-.btn-outline:hover { @apply bg-slate-50; }
+  .label{ @apply block text-sm font-medium mb-1; color:var(--nh-ink); }
+  .help{ @apply text-xs; color:var(--nh-soft); }
 
-.card { @apply bg-[color:var(--nh-card)] rounded-2xl shadow p-6; }
+  .btn{
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 font-semibold transition
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2;
+  }
 
-/* Navbar (si quieres una leve sombra al hacer scroll, ya la controlas en el componente) */
+  /* ---- Botones con fallback CSS (funciona en Tailwind v3/v4) ---- */
+  .btn-primary{
+    @apply text-white;
+    /* tailwind v4 */
+    @apply bg-[--nh-primary] hover:bg-[--nh-primary-d];
+    /* fallback v3 */
+    background-color: var(--nh-primary);
+  }
+  .btn-primary:hover{ background-color: var(--nh-primary-d); }
+
+  .btn-outline-primary{
+    @apply bg-white border-2 text-[--nh-primary];
+    /* v4 */
+    @apply border-[--nh-primary] hover:bg-[--nh-panel];
+    /* fallback v3 */
+    border-color: var(--nh-primary);
+  }
+
+  .btn-accent{
+    /* v4 */
+    @apply bg-[--nh-accent] text-[--nh-primary];
+    /* fallback v3 */
+    background-color: var(--nh-accent);
+    color: var(--nh-primary);
+  }
+  .btn-accent:hover{ filter: brightness(0.97); }
+
+  .btn-outline{
+    @apply border bg-white;
+    /* v4 */
+    @apply border-[--nh-border] text-[--nh-ink] hover:bg-[--nh-panel];
+    /* fallback v3 */
+    border-color: var(--nh-border);
+    color: var(--nh-ink);
+  }
+
+  .card{
+    @apply rounded-2xl shadow p-6 border;
+    /* v4 */
+    @apply bg-[--nh-card] border-[--nh-border];
+    /* fallback v3 */
+    background: var(--nh-card);
+    border-color: var(--nh-border);
+  }
+
+  .glass{
+    @apply bg-white/70 backdrop-blur ring-1 shadow-xl;
+    --tw-ring-color: var(--nh-glass-ring);
+  }
+}
+
+/* ===== Utils ===== */
+@layer utilities{
+  .text-ink{ color:var(--nh-ink); }
+  .text-muted{ color:var(--nh-muted); }
+  .border-soft{ border-color:var(--nh-border); }
+}

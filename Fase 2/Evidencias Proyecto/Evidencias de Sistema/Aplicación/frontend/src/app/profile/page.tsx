@@ -9,7 +9,7 @@ import AvatarUploader from "@/components/profile/AvatarUploader";
 
 // ===== Endpoints (ajústalos si tu backend usa otros) =====
 const PROFILE_PATCH = "/api/users/me";             // PATCH { name }
-const PASSWORD_POST = "/api/auth/change-password"; // POST { current, next }
+const PASSWORD_POST = "/api/users/change-password"; // POST { current, next }
 const AVATAR_POST   = "/api/users/me/avatar";      // POST FormData "file"
 
 // ===== Reglas de contraseña (mismas del registro) =====
@@ -91,7 +91,7 @@ export default function ProfilePage() {
     }
     setPwdSaving(true);
     try {
-      await api.post(PASSWORD_POST, { current: pwd.current, next: pwd.next });
+      await api.post(PASSWORD_POST, { currentPassword: pwd.current, newPassword: pwd.next });
       setStatus("🔐 Contraseña actualizada");
       setPwd({ current: "", next: "", next2: "" });
     } catch (err: any) {

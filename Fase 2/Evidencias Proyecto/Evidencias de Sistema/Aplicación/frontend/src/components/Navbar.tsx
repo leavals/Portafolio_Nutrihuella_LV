@@ -47,8 +47,8 @@ export default function Navbar() {
           <Image
             src="/nutrihuella/logo-mark.png"
             alt="NutriHuella"
-            width={36}
-            height={36}
+            width={72}
+            height={72}
             className="rounded-full"
           />
           <span className="text-2xl font-semibold tracking-tight">NutriHuella</span>

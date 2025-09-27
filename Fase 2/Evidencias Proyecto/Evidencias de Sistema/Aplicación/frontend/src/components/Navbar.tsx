@@ -12,15 +12,18 @@ import {
   PawPrint,
   UserCircle2,
   Heart,
+  Utensils, 
+  Home,       // ⬅️ nuevo ícono para Inicio
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 
 type NavItem = { href: string; label: string; Icon: React.ComponentType<any> }
 
 const authNav: NavItem[] = [
-  { href: '/profile',           label: 'Mi perfil',          Icon: UserCircle2 },
-  { href: '/pets',              label: 'Mis mascotas',       Icon: PawPrint },
-  { href: '/recipes/favorites', label: 'Recetas favoritas',  Icon: Heart },
+  { href: '/', label: 'Inicio', Icon: Home },       // ⬅️ agregado al comienzo
+  { href: '/pets',      label: 'Mis mascotas', Icon: PawPrint },
+  { href: '/pantry',    label: 'Mi despensa', Icon: Utensils },
+  { href: '/recipes/favorites', label: 'Recetas favoritas', Icon: Heart },
 ]
 
 export default function Navbar() {
@@ -97,6 +100,14 @@ export default function Navbar() {
                     <User2 className="h-4 w-4" />
                     Panel
                   </Link>
+                  <Link
+                    href="/profile"
+                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-slate-100"
+                    onClick={() => setOpen(false)}
+                  >
+                    <User2 className="h-4 w-4" />
+                    Mi Perfil
+                  </Link>
                   <button
                     onClick={() => {
                       setOpen(false)
@@ -112,11 +123,9 @@ export default function Navbar() {
             </div>
           ) : (
             <>
-              {/* Iniciar sesión: blanco + borde/texto 428179 */}
               <Link href="/login" className="btn btn-outline-primary">
                 Iniciar sesión
               </Link>
-              {/* Crear cuenta: primario 428179 + blanco */}
               <Link href="/register" className="btn btn-primary">
                 Crear cuenta
               </Link>
@@ -140,11 +149,12 @@ export default function Navbar() {
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <ul className="flex justify-center items-center gap-8 text-sm py-2 overflow-x-auto">
               {authNav.map(({ href, label, Icon }) => {
-                const active = pathname === href
+                const active = pathname === href || pathname.startsWith(href + '/')
                 return (
                   <li key={href}>
                     <Link
                       href={href}
+                      aria-current={active ? 'page' : undefined}
                       className={
                         active
                           ? 'text-[--nh-primary] font-medium inline-flex items-center gap-2'

@@ -1,15 +1,15 @@
+// src/components/LoginForm.tsx
 "use client";
 
 import { useState } from "react";
 import Link from "next/link";
-import GoogleLoginButton from "@/components/GoogleLoginButton";
 import { useAuth } from "@/lib/auth-context";
 import { TextField, PasswordField } from "@/components/form/Fields";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type Props = {
-  onSuccess?: () => void; // para modal
+  onSuccess?: () => void; // usado por /login para manejar ?next
   showTitle?: boolean;
 };
 
@@ -18,17 +18,18 @@ export default function LoginForm({ onSuccess, showTitle = true }: Props) {
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [err, setErr] = useState<string | null>(null);
-
   const emailValid = EMAIL_RE.test(email);
-  const disabled = !emailValid || pw.length < 8;
+  const disabled = !emailValid || pw.length < 4;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (disabled) return;
     setErr(null);
     try {
       await loginEmail(email, pw);
       if (onSuccess) onSuccess();
-      else location.assign("/dashboard");
+      // Si no se pasa onSuccess, no forzamos redirección aquí.
+      // Dejas este else vacío o redirige a un default si lo prefieres.
     } catch (e: any) {
       setErr(e?.message || "Credenciales inválidas");
     }
@@ -54,30 +55,25 @@ export default function LoginForm({ onSuccess, showTitle = true }: Props) {
       />
 
       <PasswordField
-        id="login-pw"
+        id="login-password"
         label="Contraseña"
+        placeholder="********"
         value={pw}
         onChange={(e) => setPw((e.target as HTMLInputElement).value)}
-        minLength={8}
         required
       />
 
-      {err && <p className="nh-error mt-2">{err}</p>}
+      {err && <p className="text-sm text-red-600 mt-2">{err}</p>}
 
       <button type="submit" className="btn btn-primary w-full mt-4 disabled:opacity-50" disabled={disabled}>
         Entrar
       </button>
 
-      <div className="my-4 flex items-center gap-3 text-sm text-slate-500">
-        <span className="flex-1 border-t" />
-        <span>o</span>
-        <span className="flex-1 border-t" />
-      </div>
-
-      <GoogleLoginButton />
-
       <p className="text-sm text-slate-600 mt-4">
-        ¿No tienes cuenta? <Link className="underline text-[var(--nh-primary)]" href="/register">Regístrate</Link>
+        ¿No tienes cuenta?{" "}
+        <Link className="underline text-[var(--nh-primary)]" href="/register">
+          Regístrate
+        </Link>
       </p>
     </form>
   );

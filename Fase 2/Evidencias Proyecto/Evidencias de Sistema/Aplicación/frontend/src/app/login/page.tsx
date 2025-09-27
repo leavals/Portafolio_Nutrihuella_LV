@@ -36,7 +36,7 @@ export default function LoginPage() {
           </p>
 
           {/* Login por email/clave: al éxito -> volver a next */}
-          <LoginForm showTitle={false} onSuccess={goNext} />
+          <LoginForm showTitle={false} onSuccess={() => router.back()} />
 
           <div className="my-4 flex items-center gap-3 text-sm text-slate-500">
             <span className="flex-1 border-t" />
@@ -45,7 +45,7 @@ export default function LoginPage() {
           </div>
 
           {/* Google Login: al éxito -> volver a next */}
-          <GoogleLoginButton onSuccess={goNext} />
+          <GoogleLoginButton onSuccess={() => router.back()} />
         </div>
       </div>
     </div>

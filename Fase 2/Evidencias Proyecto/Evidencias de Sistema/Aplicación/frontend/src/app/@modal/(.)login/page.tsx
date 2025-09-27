@@ -58,7 +58,7 @@ export default function LoginModal() {
             </p>
 
             {/* Email/clave → al éxito vuelve a ?next o /dashboard */}
-            <LoginForm onSuccess={goNext} showTitle={false} />
+            <LoginForm onSuccess={() => router.back()} showTitle={false} />
 
             {/* Separador "o" como en /login */}
             <div className="my-4 flex items-center gap-3 text-sm text-slate-500">

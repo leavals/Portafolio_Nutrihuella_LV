@@ -5,7 +5,8 @@ import morgan from "morgan";
 
 import authRoutes from "./routes/auth.routes.js";
 import petRoutes from "./routes/pets.routes.js";
-import pantryRoutes from "./routes/pantry.routes.js"; // ⬅️ NUEVO
+import pantryRoutes from "./routes/pantry.routes.js";
+import usersRoutes from "./routes/users.routes.js";
 
 const app = express();
 
@@ -15,6 +16,7 @@ app.use(morgan("dev"));
 app.use("/uploads", express.static("uploads"));
 
 app.use("/api/auth", authRoutes);
+app.use("/api/users", usersRoutes);
 app.use("/api/pets", petRoutes);
 app.use("/api/pantry", pantryRoutes); // ⬅️ NUEVO
 

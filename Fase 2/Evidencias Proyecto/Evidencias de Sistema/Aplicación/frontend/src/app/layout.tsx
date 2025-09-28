@@ -1,7 +1,9 @@
+// src/app/layout.tsx
 import "./globals.css";
 import type { Metadata } from "next";
 import Navbar from "@/components/Navbar";
 import Providers from "./providers";
+import ProtectedPage from "@/components/ProtectedPage"; // ⬅️ agrega esto
 
 export const metadata: Metadata = {
   title: "NutriHuella",
@@ -10,7 +12,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-  modal, // ⬅️ slot paralelo para modales
+  modal,
 }: {
   children: React.ReactNode;
   modal: React.ReactNode;
@@ -22,17 +24,15 @@ export default function RootLayout({
           {/* Fondo */}
           <div
             className="fixed inset-0 -z-10 bg-center bg-cover"
-            style={{
-              backgroundImage:
-                "url('/nutrihuella/dog-bg.png')",
-            }}
+            style={{ backgroundImage: "url('/nutrihuella/dog-bg.png')" }}
           />
           <Navbar />
           <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
-            {children}
+            {/* ⬇️ Protege globalmente todas las rutas (menos /, /login, /register) */}
+            <ProtectedPage>{children}</ProtectedPage>
           </main>
 
-          {/* Aquí se montan los modales (si hay) */}
+          {/* Slot de modales */}
           {modal}
         </Providers>
       </body>

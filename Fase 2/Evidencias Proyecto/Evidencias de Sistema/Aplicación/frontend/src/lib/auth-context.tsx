@@ -1,11 +1,31 @@
+// src/lib/auth-context.tsx
 "use client";
+
 /**
- * AuthContext — ahora:
- * - Expone role/isAdmin/isClient
- * - Calcula displayName desde user.name o alias del email
+ * AuthContext
+ * - Mantiene user/token/role
+ * - Guarda token en localStorage y en cookie (para que el middleware lo lea)
+ * - Limpia cookie + localStorage en logout
  */
+
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
+
+// ❗ Mantén este nombre en sync con middleware y api.ts
+const AUTH_COOKIE = "auth_token";
+const TOKEN_KEY = "token";
+
+// Utilidades cookie (no-HttpOnly, accesible por middleware)
+function setCookie(name: string, value: string, days = 7) {
+  if (typeof document === "undefined") return;
+  const d = new Date();
+  d.setTime(d.getTime() + days * 24 * 60 * 60 * 1000);
+  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${d.toUTCString()}; path=/; SameSite=Lax`;
+}
+function deleteCookie(name: string) {
+  if (typeof document === "undefined") return;
+  document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax`;
+}
 
 export type User = {
   id: string;
@@ -32,19 +52,25 @@ type AuthCtx = {
 };
 
 const Ctx = createContext<AuthCtx | null>(null);
-const TOKEN_KEY = "token";
 
 function saveToken(token: string | null) {
   if (typeof window === "undefined") return;
-  if (token) localStorage.setItem(TOKEN_KEY, token);
-  else localStorage.removeItem(TOKEN_KEY);
+  if (token) {
+    localStorage.setItem(TOKEN_KEY, token);
+    setCookie(AUTH_COOKIE, token);
+  } else {
+    localStorage.removeItem(TOKEN_KEY);
+    deleteCookie(AUTH_COOKIE);
+  }
 }
 
 function parseJwt(token: string | null): { role: string | null; is_admin: boolean } {
   try {
     if (!token) return { role: null, is_admin: false };
-    const b64 = token.split(".")[1];
-    const payload = JSON.parse(atob(b64.replace(/-/g, "+").replace(/_/g, "/")));
+    const [, payloadB64] = token.split(".");
+    const b64 = payloadB64.replace(/-/g, "+").replace(/_/g, "/");
+    const json = typeof atob !== "undefined" ? atob(b64) : Buffer.from(b64, "base64").toString("binary");
+    const payload = JSON.parse(json);
     return { role: payload?.role ?? null, is_admin: !!payload?.is_admin };
   } catch {
     return { role: null, is_admin: false };
@@ -52,20 +78,24 @@ function parseJwt(token: string | null): { role: string | null; is_admin: boolea
 }
 
 async function fetchMe(): Promise<User | null> {
-  try { return await api.get<User>("/api/auth/me"); }
-  catch { return null; }
+  try {
+    return await api.get<User>("/api/auth/me");
+  } catch {
+    return null;
+  }
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser]   = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const [role, setRole]   = useState<string | null>(null);
+  const [role, setRole] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // Cargar token desde localStorage/cookie al montar
   useEffect(() => {
     (async () => {
-      const tk = typeof window !== "undefined" ? localStorage.getItem(TOKEN_KEY) : null;
+      const tk = typeof window !== "undefined" ? (localStorage.getItem(TOKEN_KEY) || null) : null;
       if (tk) setToken(tk);
       const c = parseJwt(tk);
       setRole(c.role);
@@ -77,73 +107,99 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })();
   }, []);
 
-  async function registerEmail(p:{name?:string; email:string; password:string}){
+  const isClient = !!role && role.toLowerCase() === "client";
+  const isAuthenticated = !!token;
+
+  const displayName = useMemo(() => {
+    if (user?.name && user.name.trim()) return user.name.trim();
+    if (user?.email) return user.email.split("@")[0];
+    return "Usuario";
+  }, [user]);
+
+  async function registerEmail(p: { name?: string; email: string; password: string }) {
     setLoading(true);
-    try{
-      const res = await api.post<{token:string; user:User}>("/api/auth/register", p);
-      saveToken(res.token);
-      const c = parseJwt(res.token);
-      setToken(res.token); setRole(c.role); setIsAdmin(c.is_admin || (c.role?.toLowerCase()==="admin"));
-      setUser({ ...res.user, role: c.role ?? null });
-    } finally{ setLoading(false); }
+    try {
+      await api.post("/api/auth/register", p);
+      // No iniciamos sesión automáticamente a menos que tu backend lo haga
+    } finally {
+      setLoading(false);
+    }
   }
 
-  async function loginEmail(email:string, password:string){
+  async function loginEmail(email: string, password: string) {
     setLoading(true);
-    try{
-      const res = await api.post<{token:string; user:User}>("/api/auth/login", {email, password});
+    try {
+      const res = await api.post<{ token: string; user: User }>("/api/auth/login", { email, password });
       saveToken(res.token);
       const c = parseJwt(res.token);
-      setToken(res.token); setRole(c.role); setIsAdmin(c.is_admin || (c.role?.toLowerCase()==="admin"));
+      setToken(res.token);
+      setRole(c.role);
+      setIsAdmin(c.is_admin || (c.role?.toLowerCase() === "admin"));
       setUser({ ...res.user, role: c.role ?? null });
-    } finally{ setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   }
 
-  async function loginGoogle(idToken:string){
+  async function loginGoogle(idToken: string) {
     setLoading(true);
-    try{
-      const res = await api.post<{token:string; user:User}>("/api/auth/google", {idToken});
+    try {
+      const res = await api.post<{ token: string; user: User }>("/api/auth/google", { idToken });
       saveToken(res.token);
       const c = parseJwt(res.token);
-      setToken(res.token); setRole(c.role); setIsAdmin(c.is_admin || (c.role?.toLowerCase()==="admin"));
+      setToken(res.token);
+      setRole(c.role);
+      setIsAdmin(c.is_admin || (c.role?.toLowerCase() === "admin"));
       setUser({ ...res.user, role: c.role ?? null });
-    } finally{ setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   }
 
-  async function refresh(){
+  async function refresh() {
     if (!token) return;
     setLoading(true);
-    try{
+    try {
       const me = await fetchMe();
       const c = parseJwt(token);
-      setRole(c.role); setIsAdmin(c.is_admin || (c.role?.toLowerCase()==="admin"));
+      setRole(c.role);
+      setIsAdmin(c.is_admin || (c.role?.toLowerCase() === "admin"));
       setUser(me ? { ...me, role: c.role ?? me.role ?? null } : null);
-    } finally{ setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   }
 
-  function logout(){
-    saveToken(null); setToken(null); setRole(null); setIsAdmin(false); setUser(null);
+  function logout() {
+    setUser(null);
+    setRole(null);
+    setIsAdmin(false);
+    setToken(null);
+    saveToken(null); // limpia localStorage + cookie
   }
 
-  const normalizedRole = (role ?? user?.role ?? "").toString().toLowerCase();
-  const isClient = !isAdmin && (["usuario","cliente","user","client",""].includes(normalizedRole));
-  const displayName = (user?.name && user.name.trim())
-    ? user.name.trim()
-    : (user?.email ? user.email.split("@")[0] : "");
-
-  const value:AuthCtx = useMemo(()=>({
-    user, token, role, isAdmin, isClient, loading,
-    isAuthenticated: !!user && !!token,
+  const value = useMemo<AuthCtx>(() => ({
+    user,
+    token,
+    role,
+    isAdmin,
+    isClient,
+    loading,
+    isAuthenticated,
     displayName,
-    registerEmail, loginEmail, loginGoogle, refresh, logout
-  }),[user, token, role, isAdmin, isClient, loading, displayName]);
+    registerEmail,
+    loginEmail,
+    loginGoogle,
+    refresh,
+    logout,
+  }), [user, token, role, isAdmin, isClient, loading, isAuthenticated, displayName]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
-export function useAuth(){
+export function useAuth() {
   const ctx = useContext(Ctx);
-  if(!ctx) throw new Error("useAuth must be used within <AuthProvider>");
+  if (!ctx) throw new Error("useAuth must be used within <AuthProvider>");
   return ctx;
 }
 

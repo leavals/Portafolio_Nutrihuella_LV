@@ -1,3 +1,4 @@
+// src/components/GoogleLoginButton.tsx
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -10,7 +11,6 @@ export default function GoogleLoginButton({ onSuccess }: Props) {
   const [ready, setReady] = useState(false);
   const btnRef = useRef<HTMLDivElement>(null);
 
-  // Carga del script GSI
   useEffect(() => {
     const id = "google-gsi";
     if (!document.getElementById(id)) {
@@ -26,49 +26,22 @@ export default function GoogleLoginButton({ onSuccess }: Props) {
     }
   }, []);
 
-  // Inicializa el botón
   useEffect(() => {
-    if (!ready || !btnRef.current) return;
+    if (!ready || !btnRef.current || !(window as any).google) return;
 
-    const g = (window as any)?.google;
-    if (!g?.accounts?.id) return;
-
-    const client_id = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-    if (!client_id) {
-      console.error("Falta NEXT_PUBLIC_GOOGLE_CLIENT_ID");
-      return;
-    }
-
-    (g.accounts.id as any).initialize({
-      client_id,
-      // algunos d.ts viejos no incluyen esta prop -> forzamos any
-      ux_mode: "popup",
-      callback: async (response: { credential?: string }) => {
+    (window as any).google.accounts.id.initialize({
+      client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+      callback: async (response: any) => {
         try {
-          if (!response?.credential) throw new Error("No llegó credential de Google");
-
-          // (opcional) inspección payload para depurar audiencia/email
-          try {
-            const payload = JSON.parse(atob(response.credential.split(".")[1]));
-            console.log("[GSI payload]", {
-              aud: payload?.aud,
-              email: payload?.email,
-              iss: payload?.iss,
-              sub: payload?.sub,
-              email_verified: payload?.email_verified,
-            });
-          } catch {}
-
           await loginGoogle(response.credential);
           onSuccess?.();
-        } catch (err) {
-          console.error("Fallo login con Google:", err);
-          alert("No se pudo iniciar sesión con Google.");
+        } catch {
+          // podrías mostrar un toast de error aquí
         }
       },
-    } as any);
+    });
 
-    (g.accounts.id as any).renderButton(btnRef.current, {
+    (window as any).google.accounts.id.renderButton(btnRef.current, {
       theme: "outline",
       size: "large",
       shape: "pill",

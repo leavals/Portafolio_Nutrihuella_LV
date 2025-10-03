@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { Button, Card, Field, Input, Select } from "@/components/ui";
+import { DOG_BREEDS, PetSize, SIZES, SIZE_LABELS } from "@/constans/pets";
+
 
 type Pet = {
   id: string;
@@ -12,8 +14,10 @@ type Pet = {
   species: "DOG" | "CAT" | "OTHER";
   sex: "MALE" | "FEMALE";
   breed?: string | null;
+  size?: PetSize | null;
   weightKg?: number | null;
   photoUrl?: string | null;
+  sterilized?: boolean | null;
 };
 
 export default function EditPetPage() {
@@ -64,7 +68,9 @@ export default function EditPetPage() {
         species: pet.species,
         sex: pet.sex,
         breed: pet.breed ?? null,
+        size: pet.size ?? undefined,
         weightKg: typeof pet.weightKg === "number" ? pet.weightKg : null,
+        sterilized: typeof pet.sterilized === "boolean" ? pet.sterilized : undefined,
       });
       router.push(`/pets/${pet.id}`);
     } catch (e: any) {
@@ -170,8 +176,33 @@ export default function EditPetPage() {
             </Select>
           </Field>
 
-          <Field label="Raza (opcional)">
-            <Input value={pet.breed ?? ""} onChange={e => setPet({ ...pet, breed: e.target.value })} />
+          <Field label="Raza">
+            {pet.species === "DOG" ? (
+              <>
+                <input
+                  className="input"
+                  list="dog-breeds"
+                  value={pet.breed ?? ""}
+                  onChange={(e) => setPet({ ...pet, breed: e.target.value })}
+                />
+                <datalist id="dog-breeds">
+                  {DOG_BREEDS.map(b => <option key={b} value={b} />)}
+                </datalist>
+              </>
+            ) : (
+              <Input value={pet.breed ?? ""} onChange={e => setPet({ ...pet, breed: e.target.value })} />
+            )}
+          </Field>
+
+          <Field label="Tamaño">
+            <Select
+              value={pet.size ?? "MEDIUM"}
+              onChange={(e) => setPet({ ...pet, size: e.target.value as typeof SIZES[number] })}
+            >
+              {SIZES.map(v => (
+                <option key={v} value={v}>{SIZE_LABELS[v]}</option>
+              ))}
+            </Select>
           </Field>
 
           <Field label="Peso (kg)">
@@ -184,7 +215,14 @@ export default function EditPetPage() {
               onChange={e => setPet({ ...pet, weightKg: e.target.value ? Number(e.target.value) : null })}
             />
           </Field>
-
+          <Field label="Esterilizado">
+            <input
+              type="checkbox"
+              className="h-4 w-4"
+              checked={!!pet.sterilized}
+              onChange={(e) => setPet({ ...pet, sterilized: e.target.checked })}
+            />
+          </Field>
           <div className="md:col-span-3">
             <Button type="submit" disabled={saving}>{saving ? "Guardando…" : "Guardar cambios"}</Button>
           </div>

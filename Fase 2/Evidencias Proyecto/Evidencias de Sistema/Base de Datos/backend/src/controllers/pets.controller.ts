@@ -24,6 +24,67 @@ const JSONText = {
 // Convierte una fecha tipo 'YYYY-MM-DD' (string) a ISO, o null/undefined.
 const toISOorNull = (s?: string | null) => (s ? new Date(s).toISOString() : null);
 
+// Sentinel para marcar "sin enfermedades"
+const NO_DISEASES_ACK_NAME = "[NO_DISEASES_ACK]";
+
+/**
+ * Devuelve el estado del wizard:
+ * - nutrition: existe nutritionProfile
+ * - diseasesCount: cantidad de enfermedades reales (excluye el ACK)
+ * - noDiseasesAck: true si existe el placeholder [NO_DISEASES_ACK]
+ * - complete: nutrition && (diseasesCount > 0 || noDiseasesAck)
+ */
+export async function getWizardCompletion(req: Request, res: Response) {
+  const userId = (req as any).userId as string;
+  const { petId } = req.params;
+
+  const pet = await prisma.pet.findFirst({ where: { id: petId, ownerId: userId } });
+  if (!pet) return res.sendStatus(404);
+
+  const [np, diseasesCount, ackCount] = await Promise.all([
+    prisma.nutritionProfile.findUnique({ where: { petId } }),
+    prisma.disease.count({ where: { petId, name: { not: NO_DISEASES_ACK_NAME } } }),
+    prisma.disease.count({ where: { petId, name: NO_DISEASES_ACK_NAME } }),
+  ]);
+
+  const nutrition = !!np;
+  const noDiseasesAck = ackCount > 0;
+  const complete = nutrition && (diseasesCount > 0 || noDiseasesAck);
+
+  return res.json({ nutrition, diseasesCount, noDiseasesAck, complete });
+}
+
+/**
+ * Marca el paso "Enfermedades" como revisado aunque no se agreguen enfermedades.
+ * Implementación sin migraciones: crea una fila sentinel con name = "[NO_DISEASES_ACK]".
+ * El listado público de enfermedades la ocultará.
+ */
+export async function ackNoDiseasesForPet(req: Request, res: Response) {
+  const userId = (req as any).userId as string;
+  const { petId } = req.params;
+
+  const pet = await prisma.pet.findFirst({ where: { id: petId, ownerId: userId } });
+  if (!pet) return res.sendStatus(404);
+
+  // Si ya existe el ACK, no duplica
+  const ack = await prisma.disease.findFirst({
+    where: { petId, name: NO_DISEASES_ACK_NAME },
+  });
+
+  if (!ack) {
+    await prisma.disease.create({
+      data: {
+        petId,
+        name: NO_DISEASES_ACK_NAME,
+        status: "ACK",          // valor neutro; tu schema acepta string
+        diagnosedAt: new Date() // fecha actual como marca
+      },
+    });
+  }
+
+  return res.json({ ok: true });
+}
+
 // ============================================================
 //                        MASCOTAS
 // ============================================================
@@ -36,7 +97,7 @@ export async function listPets(req: Request, res: Response) {
 
 export async function createPet(req: Request, res: Response) {
   const userId = (req as any).userId as string;
-  const { name, species, sex, breed, age, weightKg } = req.body as any;
+  const { name, species, sex, breed, age, size , weightKg, sterilized } = req.body as any;
 
   const pet = await prisma.pet.create({
     data: {
@@ -46,7 +107,9 @@ export async function createPet(req: Request, res: Response) {
       sex: sex ?? null,
       breed: breed ?? null,
       age: typeof age === 'number' ? age : null,
+      size: size ?? 'MEDIUM',
       weightKg: typeof weightKg === 'number' ? weightKg : null,
+      sterilized: typeof sterilized === 'boolean' ? sterilized : false,
     },
   });
   return res.status(201).json(pet);
@@ -77,7 +140,9 @@ export async function updatePet(req: Request, res: Response) {
       sex: b.sex ?? undefined,
       breed: b.breed ?? undefined,
       age: typeof b.age === 'number' ? b.age : undefined,
+      size: b.size ?? undefined,
       weightKg: typeof b.weightKg === 'number' ? b.weightKg : undefined,
+      sterilized: typeof b.sterilized === 'boolean' ? b.sterilized : undefined,
     },
   });
   return res.json(updated);
@@ -219,6 +284,9 @@ export async function deleteVaccination(req: Request, res: Response) {
 
 // ------------------ Enfermedades ------------------
 
+/**
+ * Lista de enfermedades de la mascota, ocultando el sentinel [NO_DISEASES_ACK].
+ */
 export async function listDiseases(req: Request, res: Response) {
   const userId = (req as any).userId as string;
   const { petId } = req.params;
@@ -226,12 +294,17 @@ export async function listDiseases(req: Request, res: Response) {
   const pet = await prisma.pet.findFirst({ where: { id: petId, ownerId: userId } });
   if (!pet) return res.sendStatus(404);
 
-  const rows = await prisma.disease.findMany({
-    where: { petId },
+  const diseases = await prisma.disease.findMany({
+    where: {
+      petId,
+      name: { not: NO_DISEASES_ACK_NAME }, // ⬅️ oculta el ACK
+    },
     orderBy: { diagnosedAt: 'desc' },
   });
-  return res.json(rows);
+
+  return res.json(diseases);
 }
+
 
 export async function addDisease(req: Request, res: Response) {
   const userId = (req as any).userId as string;

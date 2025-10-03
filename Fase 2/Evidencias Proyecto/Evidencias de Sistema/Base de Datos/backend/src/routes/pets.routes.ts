@@ -17,6 +17,8 @@ import {
   addWeight, listWeights, deleteWeight,
   getNutrition, upsertNutrition,
   uploadPetPhoto,
+  getWizardCompletion,
+  ackNoDiseasesForPet,
 } from "../controllers/pets.controller.js";
 
 import { CreatePetSchema, UpdatePetSchema } from "../schemas/pet.schema.js";
@@ -78,5 +80,12 @@ r.put("/:petId/nutrition", validate(UpsertNutritionSchema), upsertNutrition);
 
 // ---- Foto ----
 r.post("/:petId/photo", upload.single("file"), uploadPetPhoto);
+
+// ---- Wizard (solo nutrition + diseases) ----
+r.get("/:petId/wizard/completion", getWizardCompletion);
+
+// ---- Enfermedades: ACK "sin enfermedades" ----
+r.post("/:petId/diseases/no-diseases-ack", ackNoDiseasesForPet);
+
 
 export default r;

@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import { api } from "@/lib/api";
+import { DOG_BREEDS, SIZES, SIZE_LABELS } from "@/constans/pets";
+
 
 type Props = {
   onClose: () => void;
@@ -15,6 +17,8 @@ export default function AddPetModal({ onClose, onCreated }: Props) {
     sex: "MALE",
     breed: "",
     weightKg: "",
+    sterilized: false,
+    size: "MEDIUM",
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -40,10 +44,12 @@ export default function AddPetModal({ onClose, onCreated }: Props) {
         species: form.species,
         sex: form.sex,
         breed: form.breed?.trim() || undefined,
+        size: form.size,
         weightKg:
           form.weightKg === "" || form.weightKg === null
             ? null
             : Number(form.weightKg),
+        sterilized: !!form.sterilized,
       };
       await api.post("/api/pets", payload);
       onCreated();
@@ -143,13 +149,47 @@ export default function AddPetModal({ onClose, onCreated }: Props) {
                 </div>
 
                 <div>
-                  <label className="label" htmlFor="breed">Raza (opcional)</label>
-                  <input
-                    id="breed"
+                  <label className="label" htmlFor="breed">Raza</label>
+                  {/* Si es perro: input con buscador + opciones; si no, texto libre */}
+                  {form.species === "DOG" ? (
+                    <>
+                      <input
+                        id="breed"
+                        className="input"
+                        list="dog-breeds"
+                        placeholder="Escribe para buscar…"
+                        value={form.breed}
+                        onChange={(e) => setForm({ ...form, breed: e.target.value })}
+                      />
+                      <datalist id="dog-breeds">
+                        {DOG_BREEDS.map(b => (
+                          <option key={b} value={b} />
+                        ))}
+                      </datalist>
+                    </>
+                  ) : (
+                    <input
+                      id="breed"
+                      className="input"
+                      placeholder="Raza (opcional)"
+                      value={form.breed}
+                      onChange={(e) => setForm({ ...form, breed: e.target.value })}
+                    />
+                  )}
+                </div>
+
+                <div>
+                  <label className="label" htmlFor="size">Tamaño</label>
+                  <select
+                    id="size"
                     className="input"
-                    value={form.breed}
-                    onChange={(e) => setForm({ ...form, breed: e.target.value })}
-                  />
+                    value={form.size}
+                    onChange={(e) => setForm({ ...form, size: e.target.value })}
+                  >
+                    {SIZES.map(v => (
+                      <option key={v} value={v}>{SIZE_LABELS[v]}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
@@ -168,6 +208,16 @@ export default function AddPetModal({ onClose, onCreated }: Props) {
                     }
                   />
                 </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        id="sterilized"
+                        type="checkbox"
+                        className="h-4 w-4"
+                        checked={!!form.sterilized}
+                        onChange={(e) => setForm({ ...form, sterilized: e.target.checked })}
+                      />
+                      <label className="label" htmlFor="sterilized">Esterilizado</label>
+                    </div>
 
                 <div className="pt-2 flex gap-3">
                   <button

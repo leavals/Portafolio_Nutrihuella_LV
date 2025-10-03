@@ -5,6 +5,7 @@ import { api } from "@/lib/api";
 import Image from "next/image";
 import { Plus, PawPrint } from "lucide-react";
 import AddPetModal from "@/components/pets/AddPetModal";
+import { SIZE_LABELS } from "@/constans/pets";
 
 export type Pet = {
   id: string;
@@ -12,8 +13,10 @@ export type Pet = {
   species: "DOG" | "CAT" | "OTHER";
   breed?: string | null;
   sex: "MALE" | "FEMALE";
+  size?: import("@/constans/pets").PetSize | null;
   weightKg?: number | null;
   photoUrl?: string | null;
+  sterilized?: boolean | null;
 };
 
 export default function PetsPage() {
@@ -125,7 +128,13 @@ export default function PetsPage() {
                     <p className="text-sm text-muted">
                       {p.species === "DOG" ? "Perro" : p.species === "CAT" ? "Gato" : "Otro"} •{" "}
                       {p.sex === "MALE" ? "Macho" : "Hembra"}
-                      {p.breed ? ` • ${p.breed}` : ""} {p.weightKg ? `• ${p.weightKg} kg` : ""}
+                      {p.breed ? ` • ${p.breed}` : ""} {p.size ? ` • ${SIZE_LABELS[p.size]}` : ""}
+                      {p.weightKg ? `• ${p.weightKg} kg` : ""}
+                      {p.sterilized && (
+                        
+                        <span className="text-xs rounded-full border px-2 py-0.5">Esterilizado</span>
+                      )}
+
                     </p>
                   </div>
                 </div>

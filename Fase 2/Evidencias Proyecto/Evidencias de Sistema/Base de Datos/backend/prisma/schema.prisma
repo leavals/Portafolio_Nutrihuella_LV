@@ -36,7 +36,9 @@ model Pet {
   sex       String?
   breed     String?
   age       Int?
+  size      String?  @default("MEDIUM")
   weightKg  Float?
+  sterilized Boolean  @default(false)
   clinical  ClinicalRecord?
   nutrition NutritionProfile?
   vaccines  Vaccination[]

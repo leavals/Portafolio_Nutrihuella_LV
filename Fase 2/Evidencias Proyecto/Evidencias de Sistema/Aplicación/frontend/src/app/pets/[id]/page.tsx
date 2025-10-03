@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { Card } from "@/components/ui";
+import { PetSize, SIZE_LABELS } from "@/constans/pets";
+
 
 type Pet = {
   id: string;
@@ -13,10 +15,13 @@ type Pet = {
   sex: "MALE" | "FEMALE";
   breed?: string | null;
   age?: number | null;
+  size?: PetSize | null;
   weightKg?: number | null;
   photoUrl?: string | null;
   createdAt?: string;
   updatedAt?: string;
+  sterilized?: boolean | null;
+
 };
 
 const SPECIES: Record<Pet["species"], string> = { DOG: "Perro", CAT: "Gato", OTHER: "Otro" };
@@ -82,7 +87,9 @@ export default function PetViewPage() {
             <Info label="Sexo" value={SEX[pet.sex]} />
             <Info label="Raza" value={pet.breed ?? "—"} />
             <Info label="Edad" value={pet.age != null ? `${pet.age} años` : "—"} />
+            <Info label="Tamaño" value={pet.size ? SIZE_LABELS[pet.size] : "—"} />
             <Info label="Peso" value={pet.weightKg != null ? `${pet.weightKg} kg` : "—"} />
+            <Info label="Esterilizado" value={pet.sterilized ? "Sí" : "No"} />
           </div>
         </div>
       </Card>

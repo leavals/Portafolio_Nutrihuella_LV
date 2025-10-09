@@ -56,8 +56,19 @@ export default function VaccinesPage() {
 
   return (
     <div className="space-y-4">
-      <Link href={`/pets/${petId}`} className="text-sm underline">← Volver</Link>
-      <h1 className="text-2xl font-semibold">Vacunas</h1>
+      <div className="mb-4">
+        <Link href={`/pets/${petId}`}>
+          <Button variant="primary" className="text-white">
+            ← Volver
+          </Button>
+        </Link>
+      </div>
+
+      <Card>
+        <div className="p-4">
+          <h1 className="text-2xl font-semibold">Vacunas</h1>
+        </div>
+      </Card>
 
       <Card>
         <form onSubmit={add} className="grid sm:grid-cols-3 gap-3">

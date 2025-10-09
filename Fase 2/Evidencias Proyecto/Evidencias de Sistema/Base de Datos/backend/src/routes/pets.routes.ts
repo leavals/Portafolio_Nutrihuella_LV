@@ -19,6 +19,7 @@ import {
   uploadPetPhoto,
   getWizardCompletion,
   ackNoDiseasesForPet,
+  getNutritionDefaults,
 } from "../controllers/pets.controller.js";
 
 import { CreatePetSchema, UpdatePetSchema } from "../schemas/pet.schema.js";
@@ -76,6 +77,7 @@ r.delete("/:petId/clinical/weights/:weightId", deleteWeight);
 
 // ---- Nutrición ----
 r.get("/:petId/nutrition", getNutrition);
+r.get("/:petId/nutrition/defaults", getNutritionDefaults); 
 r.put("/:petId/nutrition", validate(UpsertNutritionSchema), upsertNutrition);
 
 // ---- Foto ----

@@ -10,6 +10,7 @@
 
 import type { Request, Response } from 'express';
 import { prisma } from '../services/prisma.js';
+import { computeNutritionDefaults, mergeNutritionDefaults } from '../config/nutrition-defaults.js';
 
 // ------------------ Helpers JSON/fecha ------------------
 // Guardamos arreglos como string JSON en la BD (SQLite sin tipo JSON).
@@ -152,12 +153,28 @@ export async function deletePet(req: Request, res: Response) {
   const userId = (req as any).userId as string;
   const { petId } = req.params;
 
-  const exists = await prisma.pet.findFirst({ where: { id: petId, ownerId: userId } });
-  if (!exists) return res.sendStatus(404);
+  try {
+    // Verificar que la mascota exista
+    const exists = await prisma.pet.findFirst({ where: { id: petId, ownerId: userId } });
+    if (!exists) return res.sendStatus(404);
 
-  await prisma.pet.delete({ where: { id: petId } });
-  return res.sendStatus(204);
+    // Eliminar registros relacionados
+    await prisma.nutritionProfile.deleteMany({ where: { petId } });
+    await prisma.disease.deleteMany({ where: { petId } });
+    await prisma.vaccination.deleteMany({ where: { petId } });
+    await prisma.weight.deleteMany({ where: { petId } });
+    await prisma.clinicalRecord.deleteMany({ where: { petId } });
+
+    // Finalmente eliminar la mascota
+    await prisma.pet.delete({ where: { id: petId } });
+
+    return res.sendStatus(204);
+  } catch (error) {
+    console.error("Error eliminando mascota:", error);
+    return res.status(500).json({ message: "Error interno al eliminar la mascota", error });
+  }
 }
+
 
 // ============================================================
 //                        FICHA CLÍNICA
@@ -404,6 +421,7 @@ export async function deleteWeight(req: Request, res: Response) {
 //                        NUTRICIÓN
 // ============================================================
 
+
 export async function getNutrition(req: Request, res: Response) {
   const userId = (req as any).userId as string;
   const { petId } = req.params;
@@ -424,46 +442,66 @@ export async function getNutrition(req: Request, res: Response) {
   });
 }
 
-export async function upsertNutrition(req: Request, res: Response) {
+export async function getNutritionDefaults(req: Request, res: Response) {
   const userId = (req as any).userId as string;
   const { petId } = req.params;
 
   const pet = await prisma.pet.findFirst({ where: { id: petId, ownerId: userId } });
   if (!pet) return res.sendStatus(404);
 
+  const defaults = computeNutritionDefaults({ size: (pet as any).size, weightKg: (pet as any).weightKg });
+  return res.json(defaults);
+}
+
+
+export async function upsertNutrition(req: Request, res: Response) {
+  const userId = (req as any).userId as string;
+  const { petId } = req.params;
+
+  const pet = await prisma.pet.findFirst({ where: { id: petId, ownerId: userId } });
+  if (!pet) return res.status(404).json({ error: "Mascota no encontrada" });
+
   const b = req.body as any;
-  const data = {
-    dietType:      b.dietType ?? 'RAW',
-    mealsPerDay:   b.mealsPerDay ? Number(b.mealsPerDay) : 2,
-    activityLevel: b.activityLevel ?? 'MODERATE',
-    goal:          b.goal ?? 'MAINTENANCE',
 
-    preferredFoods: JSONText.toText(b.preferredFoods),
-    forbiddenFoods: JSONText.toText(b.forbiddenFoods),
-    intolerances:   JSONText.toText(b.intolerances),
-    foodAllergies:  JSONText.toText(b.foodAllergies),
-    supplements:    JSONText.toText(b.supplements),
+  // Obtener valores predeterminados dinámicos basados en el tamaño y peso de la mascota
+  const defaults = computeNutritionDefaults({ size: pet.size, weightKg: pet.weightKg });
 
-    dailyCalories:  b.dailyCalories ? Number(b.dailyCalories) : null,
-    waterIntakeMl:  b.waterIntakeMl ? Number(b.waterIntakeMl) : null,
-    notes:          b.notes ?? null,
+  // Mezclar los valores enviados por el usuario con los valores predeterminados
+  const data = mergeNutritionDefaults(defaults, {
+    dietType: b.dietType ?? undefined,
+    mealsPerDay: typeof b.mealsPerDay === "number" ? b.mealsPerDay : undefined,
+    activityLevel: b.activityLevel ?? undefined,
+    goal: b.goal ?? undefined,
+    preferredFoods: b.preferredFoods ?? undefined,
+    forbiddenFoods: b.forbiddenFoods ?? undefined,
+    intolerances: b.intolerances ?? undefined,
+    foodAllergies: b.foodAllergies ?? undefined,
+    supplements: b.supplements ?? undefined,
+    dailyCalories: typeof b.dailyCalories === "number" ? b.dailyCalories : undefined,
+    waterIntakeMl: typeof b.waterIntakeMl === "number" ? b.waterIntakeMl : undefined,
+    notes: b.notes ?? undefined,
+  });
+
+  // Convertir arrays a cadenas JSON para Prisma
+  const prismaData = {
+    ...data,
+    preferredFoods: JSONText.toText(data.preferredFoods),
+    forbiddenFoods: JSONText.toText(data.forbiddenFoods),
+    intolerances: JSONText.toText(data.intolerances),
+    foodAllergies: JSONText.toText(data.foodAllergies),
+    supplements: JSONText.toText(data.supplements),
   };
 
-  const np = await prisma.nutritionProfile.upsert({
+  const nutrition = await prisma.nutritionProfile.upsert({
     where: { petId },
-    update: data,
-    create: { petId, ...data },
+    update: prismaData,
+    create: { petId, ...prismaData },
   });
 
-  return res.json({
-    ...np,
-    preferredFoods: JSONText.fromText(np.preferredFoods),
-    forbiddenFoods: JSONText.fromText(np.forbiddenFoods),
-    intolerances:   JSONText.fromText(np.intolerances),
-    foodAllergies:  JSONText.fromText(np.foodAllergies),
-    supplements:    JSONText.fromText(np.supplements),
-  });
+  return res.json(nutrition);
 }
+
+
 
 // ============================================================
 //                         FOTO DE MASCOTA

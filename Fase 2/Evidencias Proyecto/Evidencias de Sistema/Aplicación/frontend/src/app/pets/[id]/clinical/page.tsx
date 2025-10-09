@@ -84,8 +84,19 @@ export default function ClinicalPage() {
 
   return (
     <div className="space-y-4">
-      <Link href={`/pets/${petId}`} className="text-sm underline">← Volver</Link>
-      <h1 className="text-2xl font-semibold">Ficha clínica</h1>
+      <div className="mb-4">
+        <Link href={`/pets/${petId}`}>
+          <Button variant="primary" className="text-white">
+            ← Volver
+          </Button>
+        </Link>
+      </div>
+
+      <Card>
+        <div className="p-4">
+          <h1 className="text-2xl font-semibold">Ficha clínica</h1>
+        </div>
+      </Card>
 
       <Card>
         <form onSubmit={save} className="grid md:grid-cols-2 gap-4" noValidate>

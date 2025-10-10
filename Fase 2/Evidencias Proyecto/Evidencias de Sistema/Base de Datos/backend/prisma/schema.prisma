@@ -106,7 +106,7 @@ model Disease {
   pet         Pet      @relation(fields: [petId], references: [id])
   name        String
   diagnosedAt DateTime
-  status      String   @default("ACTIVE") // ACTIVE | RESOLVED
+  status      String   @default("ACTIVE") // ACTIVE | RESOLVED | CRONIC
   @@index([petId])
 }
 

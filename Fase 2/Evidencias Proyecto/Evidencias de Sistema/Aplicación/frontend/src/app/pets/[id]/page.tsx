@@ -157,16 +157,13 @@ export default function PetViewPage() {
 
   return (
     <div className="space-y-6">
-      <div className="mb-4">
-        <Link href="/pets">
-          <Button variant="primary" className="text-white">
-            ← Volver a mascotas
-          </Button>
-        </Link>
-      </div>
-
+      {/* Card: título + volver */}
       <Card>
-        <h1 className="text-2xl font-semibold">Ficha de Mascota — {pet.name}</h1>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold">
+            Ficha de Mascota — {pet.name}
+          </h1>
+        </div>
       </Card>
 
       {/* ------------------ */}

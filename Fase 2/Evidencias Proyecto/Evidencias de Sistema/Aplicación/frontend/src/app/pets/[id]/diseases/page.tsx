@@ -92,20 +92,7 @@ export default function DiseasesPage() {
 
   return (
     <div className="space-y-4">
-      <div className="mb-4">
-        <Link href={`/pets/${petId}`}>
-          <Button variant="primary" className="text-white">
-            ← Volver
-          </Button>
-        </Link>
-      </div>
-
-      <Card>
-        <div className="p-4">
-          <h1 className="text-2xl font-semibold">Enfermedades</h1>
-        </div>
-      </Card>
-
+      
       {showNoDiseasesBtn && (
         <div className="rounded-lg border p-3 bg-yellow-50 text-yellow-900 text-sm flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <span>Paso 2 de 2 • Agrega enfermedades si tu mascota tiene, o confirma que no tiene.</span>
@@ -146,7 +133,14 @@ export default function DiseasesPage() {
         <p className="text-red-600">{err}</p>
       ) : (
         <div className="space-y-3">
-          {rows.length === 0 && <p className="text-sm text-slate-500">Sin registros.</p>}
+          {rows.length === 0 && (
+            <Card className="p-6 flex justify-center items-center bg-slate-50 border border-slate-200">
+              <p className="text-lg text-slate-600 font-medium text-center">
+                Sin registros.
+              </p>
+            </Card>
+          )}
+
 
           {rows.map((r) => {
             const isEditing = editingId === r.id;

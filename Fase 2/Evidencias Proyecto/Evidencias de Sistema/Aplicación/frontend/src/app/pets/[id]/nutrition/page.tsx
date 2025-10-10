@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
-import { Button, Card, Field, Input, Select } from "@/components/ui";
+import { Button, Card, Input, Select } from "@/components/ui";
 
 type Nutrition = {
   dietType?: string;
@@ -115,6 +115,7 @@ export default function NutritionPage() {
           </Button>
         </Link>
       </div>
+
       <Card>
         <div className="p-4">
           <h1 className="text-2xl font-semibold mt-2">Ficha nutricional</h1>
@@ -123,68 +124,140 @@ export default function NutritionPage() {
 
       <Card>
         <form onSubmit={save} className="grid md:grid-cols-2 gap-4 p-4" noValidate>
-          <Field label="Tipo de dieta">
-            <Select id="n_diet" defaultValue={form.dietType ?? "RAW"}>
+          {/* Tipo de dieta */}
+          <div className="flex items-center gap-4">
+            <label htmlFor="n_diet" className="w-36 text-sm font-medium">
+              Tipo de dieta
+            </label>
+            <Select id="n_diet" defaultValue={form.dietType ?? "RAW"} className="flex-1">
               <option value="RAW">Cruda</option>
               <option value="COOKED">Cocinada</option>
-              <option value="KIBBLE">Concentrado</option>
+              <option value="COMMERCIAL">Comercial</option>
               <option value="MIXED">Mixta</option>
             </Select>
-          </Field>
-          <Field label="Comidas/día">
-            <Input id="n_meals" type="number" min="1" max="6" defaultValue={form.mealsPerDay ?? 2} />
-          </Field>
-          <Field label="Actividad">
-            <Select id="n_activity" defaultValue={form.activityLevel ?? "MODERATE"}>
+          </div>
+
+          {/* Comidas/día */}
+          <div className="flex items-center gap-4">
+            <label htmlFor="n_meals" className="w-36 text-sm font-medium">
+              Comidas/día
+            </label>
+            <Input
+              id="n_meals"
+              type="number"
+              min={1}
+              max={6}
+              defaultValue={form.mealsPerDay ?? 2}
+              className="w-28"
+            />
+          </div>
+
+          {/* Actividad */}
+          <div className="flex items-center gap-4">
+            <label htmlFor="n_activity" className="w-36 text-sm font-medium">
+              Actividad
+            </label>
+            <Select id="n_activity" defaultValue={form.activityLevel ?? "MODERATE"} className="flex-1">
               <option value="LOW">Baja</option>
               <option value="MODERATE">Moderada</option>
               <option value="HIGH">Alta</option>
             </Select>
-          </Field>
-          <Field label="Meta">
-            <Select id="n_goal" defaultValue={form.goal ?? "MAINTENANCE"}>
+          </div>
+
+          {/* Meta */}
+          <div className="flex items-center gap-4">
+            <label htmlFor="n_goal" className="w-36 text-sm font-medium">
+              Meta
+            </label>
+            <Select id="n_goal" defaultValue={form.goal ?? "MAINTENANCE"} className="flex-1">
               <option value="MAINTENANCE">Mantención</option>
               <option value="GAIN">Subir peso</option>
               <option value="LOSS">Bajar peso</option>
             </Select>
-          </Field>
+          </div>
 
-          <Field label="Preferidos (CSV)">
-            <Input id="n_pref" defaultValue={toCSV(form.preferredFoods)} placeholder="pollo, zanahoria" />
-          </Field>
-          <Field label="Prohibidos (CSV)">
-            <Input id="n_forb" defaultValue={toCSV(form.forbiddenFoods)} placeholder="chocolate, uva" />
-          </Field>
-          <Field label="Intolerancias (CSV)">
-            <Input id="n_intol" defaultValue={toCSV(form.intolerances)} placeholder="lactosa" />
-          </Field>
-          <Field label="Alergias alimentarias (CSV)">
-            <Input id="n_allerg" defaultValue={toCSV(form.foodAllergies)} placeholder="gluten" />
-          </Field>
-          <Field label="Suplementos (CSV)">
-            <Input id="n_suppl" defaultValue={toCSV(form.supplements)} placeholder="omega 3" />
-          </Field>
+          {/* Preferidos (CSV) */}
+          <div className="flex items-center gap-4">
+            <label htmlFor="n_pref" className="w-36 text-sm font-medium">
+              Preferidos (CSV)
+            </label>
+            <Input id="n_pref" defaultValue={toCSV(form.preferredFoods)} placeholder="pollo, zanahoria" className="flex-1" />
+          </div>
 
-          <Field label="Calorías diarias">
-            <Input id="n_cal" type="number" step="1" min="0" defaultValue={form.dailyCalories ?? ""} />
-          </Field>
-          <Field label="Agua (ml)">
-            <Input id="n_water" type="number" step="1" min="0" defaultValue={form.waterIntakeMl ?? ""} />
-          </Field>
+          {/* Prohibidos (CSV) */}
+          <div className="flex items-center gap-4">
+            <label htmlFor="n_forb" className="w-36 text-sm font-medium">
+              Prohibidos (CSV)
+            </label>
+            <Input id="n_forb" defaultValue={toCSV(form.forbiddenFoods)} placeholder="chocolate, uva" className="flex-1" />
+          </div>
 
+          {/* Intolerancias (CSV) */}
+          <div className="flex items-center gap-4">
+            <label htmlFor="n_intol" className="w-36 text-sm font-medium">
+              Intolerancias (CSV)
+            </label>
+            <Input id="n_intol" defaultValue={toCSV(form.intolerances)} placeholder="lactosa" className="flex-1" />
+          </div>
+
+          {/* Alergias alimentarias (CSV) */}
+          <div className="flex items-center gap-4">
+            <label htmlFor="n_allerg" className="w-36 text-sm font-medium">
+              Alergias alimentarias (CSV)
+            </label>
+            <Input id="n_allerg" defaultValue={toCSV(form.foodAllergies)} placeholder="gluten" className="flex-1" />
+          </div>
+
+          {/* Suplementos (CSV) */}
+          <div className="flex items-center gap-4">
+            <label htmlFor="n_suppl" className="w-36 text-sm font-medium">
+              Suplementos (CSV)
+            </label>
+            <Input id="n_suppl" defaultValue={toCSV(form.supplements)} placeholder="omega 3" className="flex-1" />
+          </div>
+
+          {/* Calorías diarias */}
+          <div className="flex items-center gap-4">
+            <label htmlFor="n_cal" className="w-36 text-sm font-medium">
+              Calorías diarias
+            </label>
+            <Input id="n_cal" type="number" step={1} min={0} defaultValue={form.dailyCalories ?? ""} className="w-36" />
+          </div>
+
+          {/* Agua (ml) */}
+          <div className="flex items-center gap-4">
+            <label htmlFor="n_water" className="w-36 text-sm font-medium">
+              Agua (ml)
+            </label>
+            <Input id="n_water" type="number" step={1} min={0} defaultValue={form.waterIntakeMl ?? ""} className="w-36" />
+          </div>
+
+          {/* Notas (span across) */}
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium mb-1">Notas</label>
+            <label htmlFor="n_notes" className="block text-sm font-medium mb-1">
+              Notas
+            </label>
             <textarea id="n_notes" defaultValue={form.notes ?? ""} className="input w-full h-24" />
           </div>
 
-          {msg && <div className="md:col-span-2 text-sm text-green-700" aria-live="polite">{msg}</div>}
-          {err && <div className="md:col-span-2 text-sm text-red-600" aria-live="polite">{err}</div>}
+          {msg && (
+            <div className="md:col-span-2 text-sm text-green-700" aria-live="polite">
+              {msg}
+            </div>
+          )}
+          {err && (
+            <div className="md:col-span-2 text-sm text-red-600" aria-live="polite">
+              {err}
+            </div>
+          )}
 
           <div className="md:col-span-2">
             <Button type="submit">Guardar nutrición</Button>
           </div>
         </form>
       </Card>
+
+      
     </div>
   );
 }

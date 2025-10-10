@@ -10,20 +10,44 @@
 
 import type { Request, Response } from 'express';
 import { prisma } from '../services/prisma.js';
-import { computeNutritionDefaults, mergeNutritionDefaults } from '../config/nutrition-defaults.js';
+import { computeNutritionDefaults, mergeNutritionDefaults, DOG_BREED_AVG_WEIGHT } from '../config/nutrition-defaults.js';
+import { JSONHelper } from "../lib/jsonText.js"; // Asumo que tienes este helper para convertir arrays a JSON strings
 
 // ------------------ Helpers JSON/fecha ------------------
-// Guardamos arreglos como string JSON en la BD (SQLite sin tipo JSON).
+// Adaptador local: delega en el helper global
 const JSONText = {
-  toText: (v?: string[] | null) => (v ? JSON.stringify(v) : null),
-  fromText: (v?: string | null) => {
-    if (!v) return [] as string[];
-    try { return JSON.parse(v) as string[]; } catch { return []; }
-  },
+  toText: (v?: string[] | null): string | null =>
+    v == null ? null : JSONHelper.toText(v),
+  fromText: (v?: string | null): string[] =>
+    JSONHelper.toArray<string>(v),
 };
 
-// Convierte una fecha tipo 'YYYY-MM-DD' (string) a ISO, o null/undefined.
-const toISOorNull = (s?: string | null) => (s ? new Date(s).toISOString() : null);
+// Convierte 'YYYY-MM-DD' a ISO en UTC sin desfase local.
+// Si recibe otra cosa parseable, intenta parsear; si falla, null.
+const toISOorNull = (s?: string | null) => {
+  if (!s) return null;
+  // Caso 'YYYY-MM-DD'
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (m) {
+    const [_, yy, mm, dd] = m;
+    const iso = new Date(Date.UTC(Number(yy), Number(mm) - 1, Number(dd))).toISOString();
+    return iso;
+  }
+  // Caso genérico parseable por Date
+  const t = Date.parse(s);
+  return Number.isNaN(t) ? null : new Date(t).toISOString();
+};
+
+// (opcional) helper para admitir números que pueden venir como string
+const num = (v: unknown): number | undefined => {
+  if (typeof v === "number" && !Number.isNaN(v)) return v;
+  if (typeof v === "string" && v.trim() !== "") {
+    const n = Number(v);
+    if (!Number.isNaN(n)) return n;
+  }
+  return undefined;
+};
+
 
 // Sentinel para marcar "sin enfermedades"
 const NO_DISEASES_ACK_NAME = "[NO_DISEASES_ACK]";
@@ -421,87 +445,143 @@ export async function deleteWeight(req: Request, res: Response) {
 //                        NUTRICIÓN
 // ============================================================
 
-
+// ------------------------------------------------------------
+// Obtener ficha nutricional
+// ------------------------------------------------------------
 export async function getNutrition(req: Request, res: Response) {
   const userId = (req as any).userId as string;
   const { petId } = req.params;
 
-  const pet = await prisma.pet.findFirst({ where: { id: petId, ownerId: userId } });
+  const pet = await prisma.pet.findFirst({
+    where: { id: petId, ownerId: userId },
+  });
   if (!pet) return res.sendStatus(404);
 
+  // Si petId es UNIQUE en nutritionProfile, esto está OK.
   const np = await prisma.nutritionProfile.findUnique({ where: { petId } });
   if (!np) return res.json(null);
 
+  // 🔁 Al responder: arrays reales (no strings)
   return res.json({
     ...np,
-    preferredFoods: JSONText.fromText(np.preferredFoods),
-    forbiddenFoods: JSONText.fromText(np.forbiddenFoods),
-    intolerances:   JSONText.fromText(np.intolerances),
-    foodAllergies:  JSONText.fromText(np.foodAllergies),
-    supplements:    JSONText.fromText(np.supplements),
+    preferredFoods: JSONHelper.toArray<string>(np.preferredFoods),
+    forbiddenFoods: JSONHelper.toArray<string>(np.forbiddenFoods),
+    intolerances: JSONHelper.toArray<string>(np.intolerances),
+    foodAllergies: JSONHelper.toArray<string>(np.foodAllergies),
+    supplements: JSONHelper.toArray<string>(np.supplements),
   });
 }
 
+// ------------------------------------------------------------
+// Obtener defaults nutricionales
+// ------------------------------------------------------------
 export async function getNutritionDefaults(req: Request, res: Response) {
   const userId = (req as any).userId as string;
   const { petId } = req.params;
 
-  const pet = await prisma.pet.findFirst({ where: { id: petId, ownerId: userId } });
+  const pet = await prisma.pet.findFirst({
+    where: { id: petId, ownerId: userId },
+  });
   if (!pet) return res.sendStatus(404);
 
-  const defaults = computeNutritionDefaults({ size: (pet as any).size, weightKg: (pet as any).weightKg });
+  const defaults = computeNutritionDefaults({
+    size: pet.size ?? undefined,
+    weightKg: pet.weightKg ?? undefined,
+    breed: pet.breed ?? undefined,
+  });
+
   return res.json(defaults);
 }
 
-
+// ------------------------------------------------------------
+// Crear o actualizar ficha nutricional
+// ------------------------------------------------------------
 export async function upsertNutrition(req: Request, res: Response) {
-  const userId = (req as any).userId as string;
-  const { petId } = req.params;
+  try {
+    const userId = (req as any).userId as string;
+    const { petId } = req.params;
 
-  const pet = await prisma.pet.findFirst({ where: { id: petId, ownerId: userId } });
-  if (!pet) return res.status(404).json({ error: "Mascota no encontrada" });
+    // Verificar que la mascota existe y pertenece al usuario
+    const pet = await prisma.pet.findFirst({
+      where: { id: petId, ownerId: userId },
+    });
+    if (!pet) {
+      return res.status(404).json({ error: "Mascota no encontrada" });
+    }
 
-  const b = req.body as any;
+    const b = req.body as any;
 
-  // Obtener valores predeterminados dinámicos basados en el tamaño y peso de la mascota
-  const defaults = computeNutritionDefaults({ size: pet.size, weightKg: pet.weightKg });
+    // Determinar peso base (solo para calcular defaults, NO se guarda en nutritionProfile)
+    let weightKg: number = pet.weightKg ?? 0;
+    if ((!weightKg || weightKg <= 0) && pet.breed) {
+      const avg = DOG_BREED_AVG_WEIGHT[pet.breed.toUpperCase().trim()];
+      if (avg) weightKg = avg;
+    }
+    if (!weightKg || weightKg <= 0) weightKg = 10; // fallback mínimo
 
-  // Mezclar los valores enviados por el usuario con los valores predeterminados
-  const data = mergeNutritionDefaults(defaults, {
-    dietType: b.dietType ?? undefined,
-    mealsPerDay: typeof b.mealsPerDay === "number" ? b.mealsPerDay : undefined,
-    activityLevel: b.activityLevel ?? undefined,
-    goal: b.goal ?? undefined,
-    preferredFoods: b.preferredFoods ?? undefined,
-    forbiddenFoods: b.forbiddenFoods ?? undefined,
-    intolerances: b.intolerances ?? undefined,
-    foodAllergies: b.foodAllergies ?? undefined,
-    supplements: b.supplements ?? undefined,
-    dailyCalories: typeof b.dailyCalories === "number" ? b.dailyCalories : undefined,
-    waterIntakeMl: typeof b.waterIntakeMl === "number" ? b.waterIntakeMl : undefined,
-    notes: b.notes ?? undefined,
-  });
+    // Defaults dinámicos
+    const defaults = computeNutritionDefaults({
+      size: pet.size ?? undefined,
+      weightKg,
+      breed: pet.breed ?? undefined,
+    });
 
-  // Convertir arrays a cadenas JSON para Prisma
-  const prismaData = {
-    ...data,
-    preferredFoods: JSONText.toText(data.preferredFoods),
-    forbiddenFoods: JSONText.toText(data.forbiddenFoods),
-    intolerances: JSONText.toText(data.intolerances),
-    foodAllergies: JSONText.toText(data.foodAllergies),
-    supplements: JSONText.toText(data.supplements),
-  };
+    // Saneamos notas para que no quede undefined
+    const notes =
+      typeof b.notes === "string" && b.notes.trim() !== "" ? b.notes : undefined;
 
-  const nutrition = await prisma.nutritionProfile.upsert({
-    where: { petId },
-    update: prismaData,
-    create: { petId, ...prismaData },
-  });
+    // Mezcla con datos del body (merge ignora undefined, null y [])
+    const data = mergeNutritionDefaults(defaults, {
+      dietType: b.dietType,
+      mealsPerDay: num(b.mealsPerDay),
+      activityLevel: b.activityLevel,
+      goal: b.goal,
+      preferredFoods: b.preferredFoods,
+      forbiddenFoods: b.forbiddenFoods,
+      intolerances: b.intolerances,
+      foodAllergies: b.foodAllergies,
+      supplements: b.supplements,
+      notes,
+      dailyCalories: num(b.dailyCalories),
+      waterIntakeMl: num(b.waterIntakeMl),
+    });
 
-  return res.json(nutrition);
+    // ⚠️ 'weightKg' NO es campo de nutritionProfile → lo excluimos del payload a Prisma
+    const { weightKg: _omitWeightKg, ...dataForNutrition } = data;
+
+    // Antes de guardar: serializar arrays a texto JSON
+    const prismaData = {
+      ...dataForNutrition,
+      preferredFoods: JSONHelper.toText(dataForNutrition.preferredFoods),
+      forbiddenFoods: JSONHelper.toText(dataForNutrition.forbiddenFoods),
+      intolerances: JSONHelper.toText(dataForNutrition.intolerances),
+      foodAllergies: JSONHelper.toText(dataForNutrition.foodAllergies),
+      supplements: JSONHelper.toText(dataForNutrition.supplements),
+    };
+
+    // Upsert por petId (requiere índice único en petId)
+    const saved = await prisma.nutritionProfile.upsert({
+      where: { petId },
+      update: prismaData,
+      create: { petId, ...prismaData },
+    });
+
+    // Al responder: devolver arrays deserializados
+    return res.json({
+      ...saved,
+      preferredFoods: JSONHelper.toArray<string>(saved.preferredFoods),
+      forbiddenFoods: JSONHelper.toArray<string>(saved.forbiddenFoods),
+      intolerances: JSONHelper.toArray<string>(saved.intolerances),
+      foodAllergies: JSONHelper.toArray<string>(saved.foodAllergies),
+      supplements: JSONHelper.toArray<string>(saved.supplements),
+    });
+  } catch (error) {
+    console.error("Error upserting nutrition:", error);
+    return res
+      .status(500)
+      .json({ error: "Error al guardar la ficha nutricional" });
+  }
 }
-
-
 
 // ============================================================
 //                         FOTO DE MASCOTA

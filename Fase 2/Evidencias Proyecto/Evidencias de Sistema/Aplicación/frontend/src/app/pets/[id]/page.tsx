@@ -184,7 +184,19 @@ export default function PetViewPage() {
             <Info label="Especie" value={SPECIES[pet.species]} />
             <Info label="Sexo" value={SEX[pet.sex]} />
             <Info label="Raza" value={pet.breed ?? "—"} />
-            <Info label="Fecha de nacimiento" value={pet.birthDate ?? "—"} />
+
+            {/* Fecha de nacimiento formateada */}
+            <Info
+              label="Fecha de nacimiento"
+              value={pet.birthDate ? new Date(pet.birthDate).toLocaleDateString("es-ES") : "—"}
+            />
+
+            {/* Edad calculada */}
+            <Info
+              label="Edad"
+              value={formatAge(pet.birthDate)}
+            />
+
             <Info label="Tamaño" value={pet.size ? SIZE_LABELS[pet.size] : "—"} />
             <Info label="Peso" value={pet.weightKg != null ? `${pet.weightKg} kg` : "—"} />
             <Info label="Esterilizado" value={pet.sterilized ? "Sí" : "No"} />
@@ -324,4 +336,22 @@ function calculateAge(birthDate: string | null): number | null {
     age--;
   }
   return age;
+}
+
+// Muestra edad como "X años" o "Y meses" (< 1 año)
+function formatAge(birthDate?: string | null): string {
+  if (!birthDate) return "—";
+  const years = calculateAge(birthDate);
+  if (years == null) return "—";
+  if (years > 0) return `${years} ${years === 1 ? "año" : "años"}`;
+
+  // Para menores de 1 año, mostrar meses aproximados
+  const birth = new Date(birthDate);
+  const today = new Date();
+  let months =
+    (today.getFullYear() - birth.getFullYear()) * 12 +
+    (today.getMonth() - birth.getMonth());
+  if (today.getDate() < birth.getDate()) months = Math.max(0, months - 1);
+
+  return months > 0 ? `${months} ${months === 1 ? "mes" : "meses"}` : "menos de 1 mes";
 }

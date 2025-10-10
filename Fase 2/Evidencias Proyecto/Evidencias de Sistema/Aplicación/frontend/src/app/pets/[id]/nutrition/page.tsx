@@ -518,25 +518,17 @@ export default function NutritionPage() {
 
   return (
     <div className="space-y-4">
-      <div className="mb-4">
-        <Link href={`/pets/${petId}`}>
-          <Button variant="primary" className="text-white">
-            ← Volver
-          </Button>
-        </Link>
-      </div>
-
-      <Card>
+      
         <div className="p-4">
-          <h1 className="text-2xl font-semibold mt-2">Ficha nutricional</h1>
           {isWizard && !hasExisting && (
-            <p className="text-sm text-slate-600 mt-1">
-              Paso 1 de 2 • Completa la ficha y guarda para continuar.
-            </p>
+            <Card>
+              <p className="text-sm text-slate-600 mt-1">
+                Paso 1 de 2 • Completa la ficha y guarda para continuar.
+              </p>
+            </Card>
           )}
         </div>
-      </Card>
-
+      
       {/* Vista o Edición */}
       {isEditing ? <EditForm /> : <SummaryCard />}
     </div>

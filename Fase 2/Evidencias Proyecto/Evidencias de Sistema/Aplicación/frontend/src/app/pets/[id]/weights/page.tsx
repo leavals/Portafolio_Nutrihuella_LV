@@ -41,6 +41,7 @@ export default function WeightHistoryPage() {
 
   const [rows, setRows] = useState<Row[]>([]);
   const [current, setCurrent] = useState<Current | null>(null);
+  const [petName, setPetName] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -51,6 +52,18 @@ export default function WeightHistoryPage() {
     setLoading(true);
     setErr(null);
     try {
+      // Traer SIEMPRE el nombre de la mascota (para el título)
+      try {
+        const petResp = await api.get<{ name?: string | null; weightKg?: number | null; updatedAt?: string; createdAt?: string }>(
+          `/api/pets/${petId}`
+        );
+        const pet = unwrap<{ name?: string | null; weightKg?: number | null; updatedAt?: string; createdAt?: string }>(petResp);
+        setPetName(pet?.name ?? null);
+      } catch {
+        setPetName(null);
+      }
+
+      // Pesos
       const resp = await api.get<ApiResp>(`/api/pets/${petId}/clinical/weights`);
       const data = unwrap<ApiResp>(resp);
 
@@ -59,14 +72,14 @@ export default function WeightHistoryPage() {
         setRows(data);
 
         try {
-          const petResp = await api.get<{ weightKg?: number | null; updatedAt?: string; createdAt?: string }>(
+          const petResp2 = await api.get<{ weightKg?: number | null; updatedAt?: string; createdAt?: string }>(
             `/api/pets/${petId}`
           );
-          const pet = unwrap<{ weightKg?: number | null; updatedAt?: string; createdAt?: string }>(petResp);
-          const dateStr = pet?.updatedAt || pet?.createdAt || null;
+          const pet2 = unwrap<{ weightKg?: number | null; updatedAt?: string; createdAt?: string }>(petResp2);
+          const dateStr = pet2?.updatedAt || pet2?.createdAt || null;
           setCurrent(
-            pet && typeof pet.weightKg === "number"
-              ? { weightKg: pet.weightKg, date: dateStr }
+            pet2 && typeof pet2.weightKg === "number"
+              ? { weightKg: pet2.weightKg, date: dateStr }
               : null
           );
         } catch {
@@ -85,7 +98,6 @@ export default function WeightHistoryPage() {
   }
 
   useEffect(() => {
-    // Si la ruta todavía no resolvió params, esperamos al siguiente render
     if (!petId) return;
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -142,32 +154,22 @@ export default function WeightHistoryPage() {
     }
   }
 
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Historial de pesos</h1>
-        <Link href={`/app/pets/${petId ?? ""}/clinical`} className="text-sm text-blue-600 hover:underline">
-          ← Volver a clínico
-        </Link>
-      </div>
-
-      {!petId && (
+  if (!petId) {
+    return (
+      <div className="space-y-4">
         <Card>
           <div className="p-4 text-sm text-slate-600">
             No se encontró el identificador de la mascota en la URL.
             Verifica que la ruta use <code>[petId]</code> o ajusta la lectura del parámetro.
           </div>
         </Card>
-      )}
+      </div>
+    );
+  }
 
-      <Card>
-        <div className="p-4">
-          <p className="text-sm text-slate-600">
-            Registra pesos y revisa el histórico abajo.
-          </p>
-        </div>
-      </Card>
-
+  return (
+    <div className="space-y-4">
+    
       {current && current.weightKg != null && (
         <Card>
           <div className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">

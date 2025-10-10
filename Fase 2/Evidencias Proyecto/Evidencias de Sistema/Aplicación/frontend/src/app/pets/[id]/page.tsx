@@ -43,22 +43,15 @@ type Nutrition = {
   updatedAt?: string;
 };
 
-type Medical = {
-  id: string;
-  petId: string;
-  diseases?: string | null;
-  medications?: string | null;
-  allergies?: string | null;
-  notes?: string | null;
-  updatedAt?: string;
-};
+// Soporta los estados nuevos y el legacy "INACTIVE"
+type DiseaseStatus = "ACTIVE" | "RESOLVED" | "CRONIC" | "INACTIVE";
 
 type Disease = {
   id: string;
   name: string;
   description?: string | null;
   diagnosedAt: string; // Fecha de diagnóstico
-  status: "ACTIVE" | "INACTIVE"; // Estado de la enfermedad
+  status: DiseaseStatus; // Estado de la enfermedad
   createdAt?: string;
   updatedAt?: string;
 };
@@ -96,6 +89,14 @@ const GOAL_LABELS: Record<string, string> = {
   WEIGHT_GAIN: "Aumento de peso",
 };
 
+// Etiquetas de estado de enfermedades (incluye legacy)
+const DISEASE_STATUS_LABELS: Record<DiseaseStatus, string> = {
+  ACTIVE: "Activa",
+  RESOLVED: "Resuelta",
+  CRONIC: "Crónica",
+  INACTIVE: "Inactiva",
+};
+
 // ----------------------
 // Componente principal
 // ----------------------
@@ -105,14 +106,11 @@ export default function PetViewPage() {
 
   const [pet, setPet] = useState<Pet | null>(null);
   const [nutrition, setNutrition] = useState<Nutrition | null>(null);
-  const [medical, setMedical] = useState<Medical | null>(null);
+  const [medical, setMedical] = useState<Medical | null>(null); // (no usado, pero dejo el tipo)
   const [diseases, setDiseases] = useState<Disease[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
-  // ----------------------
-  // Cargar datos
-  // ----------------------
   useEffect(() => {
     if (!id) return;
     (async () => {
@@ -143,9 +141,6 @@ export default function PetViewPage() {
       : `${base}${pet.photoUrl}`;
   }, [pet]);
 
-  // ----------------------
-  // Renderizado condicional
-  // ----------------------
   if (!id) return <p className="text-sm text-slate-500">Ruta inválida.</p>;
   if (loading) return <p className="text-sm text-slate-500">Cargando…</p>;
   if (err) {
@@ -160,9 +155,6 @@ export default function PetViewPage() {
   }
   if (!pet) return <p className="text-sm text-slate-500">Mascota no encontrada.</p>;
 
-  // ----------------------
-  // UI principal
-  // ----------------------
   return (
     <div className="space-y-6">
       <div className="mb-4">
@@ -172,9 +164,11 @@ export default function PetViewPage() {
           </Button>
         </Link>
       </div>
+
       <Card>
-      <h1 className="text-2xl font-semibold">Ficha de Mascota — {pet.name}</h1>
+        <h1 className="text-2xl font-semibold">Ficha de Mascota — {pet.name}</h1>
       </Card>
+
       {/* ------------------ */}
       {/* Card: Datos básicos */}
       {/* ------------------ */}
@@ -192,10 +186,7 @@ export default function PetViewPage() {
             <Info label="Raza" value={pet.breed ?? "—"} />
             <Info label="Fecha de nacimiento" value={pet.birthDate ?? "—"} />
             <Info label="Tamaño" value={pet.size ? SIZE_LABELS[pet.size] : "—"} />
-            <Info
-              label="Peso"
-              value={pet.weightKg != null ? `${pet.weightKg} kg` : "—"}
-            />
+            <Info label="Peso" value={pet.weightKg != null ? `${pet.weightKg} kg` : "—"} />
             <Info label="Esterilizado" value={pet.sterilized ? "Sí" : "No"} />
           </div>
         </div>
@@ -235,66 +226,11 @@ export default function PetViewPage() {
               />
             </div>
             <div className="space-y-4">
-              <div>
-                <h3 className="text-md font-semibold">Alergias alimentarias</h3>
-                {nutrition.foodAllergies && nutrition.foodAllergies.length > 0 ? (
-                  <ul className="list-disc pl-5 space-y-1">
-                    {nutrition.foodAllergies.map((item, index) => (
-                      <li key={index}>{item}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm text-slate-500">No hay alergias alimentarias registradas.</p>
-                )}
-              </div>
-              <div>
-                <h3 className="text-md font-semibold">Intolerancias</h3>
-                {nutrition.intolerances && nutrition.intolerances.length > 0 ? (
-                  <ul className="list-disc pl-5 space-y-1">
-                    {nutrition.intolerances.map((item, index) => (
-                      <li key={index}>{item}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm text-slate-500">No hay intolerancias registradas.</p>
-                )}
-              </div>
-              <div>
-                <h3 className="text-md font-semibold">Alimentos prohibidos</h3>
-                {nutrition.forbiddenFoods && nutrition.forbiddenFoods.length > 0 ? (
-                  <ul className="list-disc pl-5 space-y-1">
-                    {nutrition.forbiddenFoods.map((item, index) => (
-                      <li key={index}>{item}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm text-slate-500">No hay alimentos prohibidos registrados.</p>
-                )}
-              </div>
-              <div>
-                <h3 className="text-md font-semibold">Alimentos preferidos</h3>
-                {nutrition.preferredFoods && nutrition.preferredFoods.length > 0 ? (
-                  <ul className="list-disc pl-5 space-y-1">
-                    {nutrition.preferredFoods.map((item, index) => (
-                      <li key={index}>{item}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm text-slate-500">No hay alimentos preferidos registrados.</p>
-                )}
-              </div>
-              <div>
-                <h3 className="text-md font-semibold">Suplementos</h3>
-                {nutrition.supplements && nutrition.supplements.length > 0 ? (
-                  <ul className="list-disc pl-5 space-y-1">
-                    {nutrition.supplements.map((item, index) => (
-                      <li key={index}>{item}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm text-slate-500">No hay suplementos registrados.</p>
-                )}
-              </div>
+              <ListBlock title="Alergias alimentarias" items={nutrition.foodAllergies} empty="No hay alergias alimentarias registradas." />
+              <ListBlock title="Intolerancias" items={nutrition.intolerances} empty="No hay intolerancias registradas." />
+              <ListBlock title="Alimentos prohibidos" items={nutrition.forbiddenFoods} empty="No hay alimentos prohibidos registrados." />
+              <ListBlock title="Alimentos preferidos" items={nutrition.preferredFoods} empty="No hay alimentos preferidos registrados." />
+              <ListBlock title="Suplementos" items={nutrition.supplements} empty="No hay suplementos registrados." />
             </div>
           </div>
         ) : (
@@ -324,7 +260,7 @@ export default function PetViewPage() {
                     {new Date(disease.diagnosedAt).toLocaleDateString("es-ES")}
                   </td>
                   <td className="border border-slate-300 px-4 py-2">
-                    {disease.status === "ACTIVE" ? "Activo" : "Inactivo"}
+                    {DISEASE_STATUS_LABELS[disease.status]}
                   </td>
                 </tr>
               ))}
@@ -339,7 +275,7 @@ export default function PetViewPage() {
 }
 
 // ----------------------
-// Subcomponente Info
+// Subcomponentes
 // ----------------------
 function Info({ label, value }: { label: string; value: string }) {
   return (
@@ -349,6 +285,34 @@ function Info({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
+function ListBlock({ title, items, empty }: { title: string; items?: string[]; empty: string }) {
+  return (
+    <div>
+      <h3 className="text-md font-semibold">{title}</h3>
+      {items && items.length > 0 ? (
+        <ul className="list-disc pl-5 space-y-1">
+          {items.map((item, index) => (
+            <li key={index}>{item}</li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-slate-500">{empty}</p>
+      )}
+    </div>
+  );
+}
+
+// (No se usa en este archivo, lo dejo si lo necesitas luego)
+type Medical = {
+  id: string;
+  petId: string;
+  diseases?: string | null;
+  medications?: string | null;
+  allergies?: string | null;
+  notes?: string | null;
+  updatedAt?: string;
+};
 
 function calculateAge(birthDate: string | null): number | null {
   if (!birthDate) return null;

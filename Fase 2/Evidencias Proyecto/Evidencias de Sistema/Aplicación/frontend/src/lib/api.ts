@@ -1,48 +1,65 @@
 // src/lib/api.ts
+'use client';
 
-// ❗ Mantén este nombre en sync con middleware y AuthContext
-const AUTH_COOKIE = "auth_token";
+const BASE_URL = (process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000').replace(/\/$/, '');
 
-function getCookie(name: string) {
-  if (typeof document === "undefined") return null;
-  const m = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
-  return m ? decodeURIComponent(m[1]) : null;
+type Opts = RequestInit & { body?: any };
+
+async function request<T = any>(path: string, opts: Opts = {}) {
+  const url = `${BASE_URL}${path.startsWith('/') ? '' : '/'}${path}`;
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+
+  try {
+    const res = await fetch(url, {
+      method: opts.method || 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(opts.headers || {}),
+      },
+      body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+      credentials: 'omit',
+    });
+
+    const text = await res.text().catch(() => '');
+    let json: any = null;
+    try { json = text ? JSON.parse(text) : null; } catch {}
+
+    if (!res.ok) {
+      const msg = json?.message || json?.error || text || `${res.status} ${res.statusText || 'Error'}`;
+      console.error('API error', {
+        url, method: opts.method || 'GET',
+        status: res.status, statusText: res.statusText,
+        message: msg, responseText: text, responseJson: json,
+      });
+      const err = new Error(msg) as any;
+      err.status = res.status;
+      err.responseText = text;
+      err.responseJson = json;
+      throw err;
+    }
+
+    if (!text) return null as any;
+    const ct = res.headers.get('content-type') || '';
+    return (ct.includes('application/json') ? json : (text as any)) as T;
+  } catch (e: any) {
+    const isNetwork = e?.name === 'TypeError' || /Failed to fetch/i.test(String(e?.message));
+    if (isNetwork) {
+      console.error('Network/CORS error calling API', { url, opts });
+      throw new Error('No se pudo conectar con el backend. Verifica que el servidor en :4000 esté encendido y que CORS permita Authorization.');
+    }
+    throw e;
+  }
 }
 
-export const api = {
-  async request<T>(method: string, url: string, body?: any): Promise<T> {
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-
-    // 1) Primero cookie (sirve para SSR/hidratar)
-    const cookieToken = getCookie(AUTH_COOKIE);
-    // 2) Luego localStorage (compat con tu código actual)
-    const lsToken = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-    const token = cookieToken || lsToken;
-
-    if (token) headers.Authorization = `Bearer ${token}`;
-
-    const res = await fetch(url, {
-      method,
-      headers,
-      body: body != null ? JSON.stringify(body) : undefined,
-    });
-    const raw = await res.text();
-    const data = safeJson(raw);
-    if (!res.ok) {
-      console.error("API error", { method, url, status: res.status, data });
-      const msg =
-        (data && ((data as any).message || (data as any).error)) || `HTTP ${res.status}`;
-      throw new Error(msg);
-    }
-    return data as T;
-  },
-
-  get<T>(url: string) { return this.request<T>("GET", url); },
-  post<T>(url: string, body?: any) { return this.request<T>("POST", url, body); },
-  put<T>(url: string, body?: any) { return this.request<T>("PUT", url, body); },
-  patch<T>(url: string, body?: any) { return this.request<T>("PATCH", url, body); },
-  delete<T>(url: string) { return this.request<T>("DELETE", url); },
-  del<T>(url: string) { return this.delete<T>(url); }, // alias compat
+const api = {
+  get:   <T = any>(p: string)          => request<T>(p),
+  post:  <T = any>(p: string, b?: any) => request<T>(p, { method: 'POST', body: b }),
+  put:   <T = any>(p: string, b?: any) => request<T>(p, { method: 'PUT',  body: b }),
+  patch: <T = any>(p: string, b?: any) => request<T>(p, { method: 'PATCH',body: b }),
+  delete:<T = any>(p: string)          => request<T>(p, { method: 'DELETE' }),
 };
 
-function safeJson(s: string) { try { return JSON.parse(s); } catch { return s; } }
+export default api;
+export { api };

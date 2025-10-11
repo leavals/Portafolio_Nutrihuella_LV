@@ -1,34 +1,51 @@
 // backend/src/server.ts
-import app from "./app.js";
-import { env } from "./env.js";
-import { prisma } from "./services/prisma.js"; // <- prisma vive acá ahora
+import app from "./app.ts";
+import { env } from "./env.ts";
+import { prisma } from "./services/prisma.ts";
 
-const PORT = env.PORT ?? 4000;
+const PORT = Number(env?.PORT ?? process.env.PORT ?? 4000);
 
-async function main() {
-  // Opcional: asegurar conexión a BD al iniciar
+let server: any = null;
+
+async function start() {
   try {
     await prisma.$connect();
     console.log("✅ Prisma conectado");
+
+    server = app.listen(PORT, () => {
+      console.log(`✅ API escuchando en http://localhost:${PORT}`);
+    });
   } catch (e) {
-    console.error("❌ Error conectando Prisma:", e);
+    console.error("❌ Error iniciando servidor:", e);
     process.exit(1);
   }
-
-  app.listen(PORT, () => {
-    console.log(`NutriHuella API escuchando en http://localhost:${PORT}`);
-  });
 }
 
-// Cierre limpio (Ctrl+C / SIGTERM)
-process.on("SIGINT", async () => {
-  console.log("\n🛑 Cerrando servidor...");
-  await prisma.$disconnect().catch(() => {});
+async function shutdown(signal: string) {
+  console.log(`\n🛑 Recibido ${signal}. Cerrando servidor...`);
+
+  try {
+    await prisma.$disconnect();
+  } catch (e) {
+    console.error("Error al desconectar Prisma:", e);
+  }
+
+  if (server) {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+
   process.exit(0);
+}
+
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught exception:", err);
+  shutdown("uncaughtException");
 });
-process.on("SIGTERM", async () => {
-  await prisma.$disconnect().catch(() => {});
-  process.exit(0);
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled rejection:", reason);
+  shutdown("unhandledRejection");
 });
 
-main();
+start();

@@ -1,23 +1,32 @@
-// backend/src/app.ts
+// src/app.ts
 import express from "express";
 import cors from "cors";
 import morgan from "morgan";
 
-import authRoutes from "./routes/auth.routes.js";
-import petRoutes from "./routes/pets.routes.js";
-import pantryRoutes from "./routes/pantry.routes.js";
-import usersRoutes from "./routes/users.routes.js";
+import authRoutes from "./routes/auth.routes.ts";
+import usersRoutes from "./routes/users.routes.ts";
+import petsRoutes from "./routes/pets.routes.ts";
+import pantryRoutes from "./routes/pantry.routes.ts";
+import recipesRoutes from "./routes/recipes.routes.ts";
 
 const app = express();
 
-app.use(cors());
-app.use(express.json());
+// CORS explícito para dev: 3000 -> 4000 con Authorization
+app.use(
+  cors({
+    origin: ["http://localhost:3000"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
+
+app.use(express.json({ limit: "2mb" }));
 app.use(morgan("dev"));
-app.use("/uploads", express.static("uploads"));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/users", usersRoutes);
-app.use("/api/pets", petRoutes);
-app.use("/api/pantry", pantryRoutes); // ⬅️ NUEVO
+app.use("/api/pets", petsRoutes);
+app.use("/api/pantry", pantryRoutes);
+app.use("/api/recipes", recipesRoutes);
 
 export default app;

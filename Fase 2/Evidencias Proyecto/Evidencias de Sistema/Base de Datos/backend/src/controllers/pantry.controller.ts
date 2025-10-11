@@ -1,6 +1,6 @@
-// backend/src/controllers/pantry.controller.ts
-import { Request, Response } from "express";
-import { prisma } from "../services/prisma.js";
+﻿// backend/src/controllers/pantry.controller.ts
+import type { Request, Response } from "express";
+import { prisma } from "../services/prisma.ts";
 
 function norm(s?: string | null) {
   return (s ?? "")
@@ -30,7 +30,7 @@ async function assertPetOfUser(petId: string, userId: string) {
   return pet;
 }
 
-/** GET /api/pantry — Lista general por usuario */
+/** GET /api/pantry â€” Lista general por usuario */
 export async function pantryList(req: Request, res: Response) {
   const userId = (req as any).user?.id ?? (req as any).userId;
   const items = await prisma.pantryItem.findMany({
@@ -40,7 +40,7 @@ export async function pantryList(req: Request, res: Response) {
   res.json(items);
 }
 
-/** POST /api/pantry — Crear ingrediente */
+/** POST /api/pantry â€” Crear ingrediente */
 export async function pantryCreate(req: Request, res: Response) {
   const userId = (req as any).user?.id ?? (req as any).userId;
   const { name, keywordsCsv, ...rest } = req.body;
@@ -56,7 +56,7 @@ export async function pantryCreate(req: Request, res: Response) {
   res.status(201).json(item);
 }
 
-/** PATCH /api/pantry/:itemId — Actualizar */
+/** PATCH /api/pantry/:itemId â€” Actualizar */
 export async function pantryUpdate(req: Request, res: Response) {
   const userId = (req as any).user?.id ?? (req as any).userId;
   const id = req.params.itemId;
@@ -77,7 +77,7 @@ export async function pantryUpdate(req: Request, res: Response) {
   res.json(updated);
 }
 
-/** DELETE /api/pantry/:itemId — Eliminar */
+/** DELETE /api/pantry/:itemId â€” Eliminar */
 export async function pantryDelete(req: Request, res: Response) {
   const userId = (req as any).user?.id ?? (req as any).userId;
   const id = req.params.itemId;
@@ -90,7 +90,7 @@ export async function pantryDelete(req: Request, res: Response) {
   res.json({ ok: true });
 }
 
-/** GET /api/pantry/expiring?days=3 — Próximos a vencer */
+/** GET /api/pantry/expiring?days=3 â€” PrÃ³ximos a vencer */
 export async function pantryExpiring(req: Request, res: Response) {
   const userId = (req as any).user?.id ?? (req as any).userId;
   const days = Number(req.query.days ?? 3);
@@ -102,7 +102,7 @@ export async function pantryExpiring(req: Request, res: Response) {
   res.json({ days, items });
 }
 
-/** GET /api/pantry/summary — Resumen por categoría (para IA) */
+/** GET /api/pantry/summary â€” Resumen por categorÃ­a (para IA) */
 export async function pantrySummary(req: Request, res: Response) {
   const userId = (req as any).user?.id ?? (req as any).userId;
   const items = await prisma.pantryItem.findMany({ where: { ownerId: userId } });
@@ -118,7 +118,7 @@ export async function pantrySummary(req: Request, res: Response) {
   res.json({ totalItems: items.length, categories: byCategory });
 }
 
-/** GET /api/pantry/usable/:petId — Filtra aptos/prohibidos según ficha de mascota */
+/** GET /api/pantry/usable/:petId â€” Filtra aptos/prohibidos segÃºn ficha de mascota */
 export async function pantryForPet(req: Request, res: Response) {
   const userId = (req as any).user?.id ?? (req as any).userId;
   const petId = req.params.petId || req.params.id;
@@ -164,3 +164,5 @@ export async function pantryForPet(req: Request, res: Response) {
     prohibidos,
   });
 }
+
+

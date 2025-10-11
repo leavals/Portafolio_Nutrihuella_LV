@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { api } from "@/lib/api";
+import api from "@/lib/api";
 import Image from "next/image";
 import { Plus, PawPrint, Trash2 } from "lucide-react";
 import AddPetModal from "@/components/pets/AddPetModal";

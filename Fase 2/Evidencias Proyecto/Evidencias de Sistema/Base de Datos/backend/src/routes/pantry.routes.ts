@@ -1,9 +1,9 @@
 // backend/src/routes/pantry.routes.ts
 import { Router } from "express";
-import { authGuard } from "../middleware/auth.middleware.js";
-import { validate } from "../middleware/validate.middleware.js";
+import { authGuard } from "../middleware/auth.middleware.ts";
+import { validate } from "../middleware/validate.middleware.ts";
 
-import { PantryCreateSchema, PantryUpdateSchema } from "../schemas/pantry.schema.js";
+import { PantryCreateSchema, PantryUpdateSchema } from "../schemas/pantry.schema.ts";
 import {
   pantryList,
   pantryCreate,
@@ -12,7 +12,7 @@ import {
   pantryExpiring,
   pantrySummary,
   pantryForPet,
-} from "../controllers/pantry.controller.js";
+} from "../controllers/pantry.controller.ts";
 
 const r = Router();
 r.use(authGuard);

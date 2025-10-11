@@ -149,3 +149,51 @@ model PasswordResetToken {
   expiresAt DateTime
   usedAt    DateTime?
 }
+
+
+enum RecipePlanType {
+  BREAKFAST
+  LUNCH
+  DINNER
+  DAILY
+  WEEKLY
+}
+
+model Recipe {
+  id        String         @id @default(cuid())
+  userId    String
+  petId     String?
+  title     String
+  planType  RecipePlanType
+  content   Json
+  createdAt DateTime       @default(now())
+
+  user      User           @relation(fields: [userId], references: [id])
+  pet       Pet?           @relation(fields: [petId], references: [id])
+  favorites FavoriteRecipe[]
+  feedback  RecipeFeedback[]
+}
+
+model FavoriteRecipe {
+  id        String   @id @default(cuid())
+  userId    String
+  recipeId  String
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id])
+  recipe Recipe @relation(fields: [recipeId], references: [id])
+
+  @@unique([userId, recipeId])
+}
+
+model RecipeFeedback {
+  id        String   @id @default(cuid())
+  userId    String
+  recipeId  String
+  rating    Int      // -1 = dislike, 1 = like
+  comment   String?
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id])
+  recipe Recipe @relation(fields: [recipeId], references: [id])
+}

@@ -1,9 +1,9 @@
-import type { Request, Response } from 'express';
+﻿import type { Request, Response } from 'express';
 import path from 'node:path';
 import bcrypt from 'bcrypt';
-import { prisma } from '../services/prisma.js';
+import { prisma } from '../services/prisma.ts';
 
-// Estructura de usuario pública estándar
+// Estructura de usuario pÃºblica estÃ¡ndar
 function publicUser(u: any) {
   return {
     id: u.id,
@@ -63,11 +63,11 @@ export async function changePassword(req: Request, res: Response) {
   // Confirmado: DB usa passwordHash (no 'password')
   if (user.passwordHash) {
     const ok = await bcrypt.compare(currentPassword, user.passwordHash);
-    if (!ok) return res.status(400).json({ message: 'Contraseña actual incorrecta' });
+    if (!ok) return res.status(400).json({ message: 'ContraseÃ±a actual incorrecta' });
   } else {
-    // Cuenta sin password previa (p.ej. Google). Permitimos inicializar con currentPassword vacío.
+    // Cuenta sin password previa (p.ej. Google). Permitimos inicializar con currentPassword vacÃ­o.
     if (currentPassword && currentPassword.length > 0) {
-      return res.status(400).json({ message: 'La cuenta no tiene contraseña previa; deje currentPassword vacío para establecer una nueva.' });
+      return res.status(400).json({ message: 'La cuenta no tiene contraseÃ±a previa; deje currentPassword vacÃ­o para establecer una nueva.' });
     }
   }
 
@@ -78,3 +78,4 @@ export async function changePassword(req: Request, res: Response) {
 }
 
 export default { getMe, updateMe, changePassword };
+

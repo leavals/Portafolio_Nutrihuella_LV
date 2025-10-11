@@ -1,21 +1,18 @@
 // src/lib/auth-context.tsx
 "use client";
-
 /**
- * AuthContext
- * - Mantiene user/token/role
- * - Guarda token en localStorage y en cookie (para que el middleware lo lea)
- * - Limpia cookie + localStorage en logout
+ * Mantiene user/token/role
+ * Guarda token en localStorage y en cookie (para que el middleware lo lea)
+ * Limpia cookie + localStorage en logout
  */
-
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { api } from "@/lib/api";
+import api from "@/lib/api";
 
-// ❗ Mantén este nombre en sync con middleware y api.ts
+// Debe coincidir con middleware.ts
 const AUTH_COOKIE = "auth_token";
 const TOKEN_KEY = "token";
 
-// Utilidades cookie (no-HttpOnly, accesible por middleware)
+// Utilidades cookie (no-HttpOnly) – accesible por middleware
 function setCookie(name: string, value: string, days = 7) {
   if (typeof document === "undefined") return;
   const d = new Date();
@@ -79,6 +76,7 @@ function parseJwt(token: string | null): { role: string | null; is_admin: boolea
 
 async function fetchMe(): Promise<User | null> {
   try {
+    // Implementa /api/auth/me (abajo te dejo la ruta) o ajusta a tu backend
     return await api.get<User>("/api/auth/me");
   } catch {
     return null;
@@ -92,7 +90,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Cargar token desde localStorage/cookie al montar
   useEffect(() => {
     (async () => {
       const tk = typeof window !== "undefined" ? (localStorage.getItem(TOKEN_KEY) || null) : null;
@@ -120,7 +117,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     try {
       await api.post("/api/auth/register", p);
-      // No iniciamos sesión automáticamente a menos que tu backend lo haga
     } finally {
       setLoading(false);
     }
@@ -175,7 +171,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setRole(null);
     setIsAdmin(false);
     setToken(null);
-    saveToken(null); // limpia localStorage + cookie
+    saveToken(null);
   }
 
   const value = useMemo<AuthCtx>(() => ({

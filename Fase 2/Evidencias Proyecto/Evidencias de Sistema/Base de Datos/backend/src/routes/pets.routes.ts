@@ -3,11 +3,10 @@ import { Router } from "express";
 import multer from "multer";
 import path from "node:path";
 import fs from "node:fs";
-import { prisma } from '../services/prisma.js';
+import { prisma } from '../services/prisma.ts';
 
-
-import { authGuard } from "../middleware/auth.middleware.js";
-import { validate } from "../middleware/validate.middleware.js";
+import { authGuard } from "../middleware/auth.middleware.ts";
+import { validate } from "../middleware/validate.middleware.ts";
 
 import {
   listPets, createPet, getPet, updatePet, deletePet,
@@ -20,16 +19,16 @@ import {
   getWizardCompletion,
   ackNoDiseasesForPet,
   getNutritionDefaults,
-} from "../controllers/pets.controller.js";
+} from "../controllers/pets.controller.ts";
 
-import { CreatePetSchema, UpdatePetSchema } from "../schemas/pet.schema.js";
+import { CreatePetSchema, UpdatePetSchema } from "../schemas/pet.schema.ts";
 import {
   UpsertClinicalSchema,
   VaccinationSchema,
   DiseaseSchema,
   WeightLogSchema,
-} from "../schemas/clinical.schema.js";
-import { UpsertNutritionSchema } from "../schemas/nutrition.schema.js";
+} from "../schemas/clinical.schema.ts";
+import { UpsertNutritionSchema } from "../schemas/nutrition.schema.ts";
 
 const r = Router();
 r.use(authGuard);
@@ -88,6 +87,5 @@ r.get("/:petId/wizard/completion", getWizardCompletion);
 
 // ---- Enfermedades: ACK "sin enfermedades" ----
 r.post("/:petId/diseases/no-diseases-ack", ackNoDiseasesForPet);
-
 
 export default r;

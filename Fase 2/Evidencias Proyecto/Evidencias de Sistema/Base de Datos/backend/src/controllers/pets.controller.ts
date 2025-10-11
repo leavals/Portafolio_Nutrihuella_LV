@@ -1,17 +1,17 @@
-// backend/src/controllers/pets.controller.ts
+﻿// backend/src/controllers/pets.controller.ts
 // ------------------------------------------------------------
-// Controladores de Mascotas, Ficha Clínica y Ficha Nutricional
+// Controladores de Mascotas, Ficha ClÃ­nica y Ficha Nutricional
 // + Subida de foto de mascota
 // ------------------------------------------------------------
 // - Compatibles con SQLite (arreglos guardados como JSON-string).
 // - Requiere middleware authGuard que setea (req as any).userId.
-// - Todas las rutas están montadas en src/routes/pets.routes.ts
+// - Todas las rutas estÃ¡n montadas en src/routes/pets.routes.ts
 // ------------------------------------------------------------
 
 import type { Request, Response } from 'express';
-import { prisma } from '../services/prisma.js';
-import { computeNutritionDefaults, mergeNutritionDefaults, DOG_BREED_AVG_WEIGHT } from '../config/nutrition-defaults.js';
-import { JSONHelper } from "../lib/jsonText.js"; // Asumo que tienes este helper para convertir arrays a JSON strings
+import { prisma } from '../services/prisma.ts';
+import { computeNutritionDefaults, mergeNutritionDefaults, DOG_BREED_AVG_WEIGHT } from '../config/nutrition-defaults.ts';
+import { JSONHelper } from "../lib/jsonText.ts"; // Asumo que tienes este helper para convertir arrays a JSON strings
 
 // ------------------ Helpers JSON/fecha ------------------
 // Adaptador local: delega en el helper global
@@ -33,12 +33,12 @@ const toISOorNull = (s?: string | null) => {
     const iso = new Date(Date.UTC(Number(yy), Number(mm) - 1, Number(dd))).toISOString();
     return iso;
   }
-  // Caso genérico parseable por Date
+  // Caso genÃ©rico parseable por Date
   const t = Date.parse(s);
   return Number.isNaN(t) ? null : new Date(t).toISOString();
 };
 
-// (opcional) helper para admitir números que pueden venir como string
+// (opcional) helper para admitir nÃºmeros que pueden venir como string
 const num = (v: unknown): number | undefined => {
   if (typeof v === "number" && !Number.isNaN(v)) return v;
   if (typeof v === "string" && v.trim() !== "") {
@@ -81,8 +81,8 @@ export async function getWizardCompletion(req: Request, res: Response) {
 
 /**
  * Marca el paso "Enfermedades" como revisado aunque no se agreguen enfermedades.
- * Implementación sin migraciones: crea una fila sentinel con name = "[NO_DISEASES_ACK]".
- * El listado público de enfermedades la ocultará.
+ * ImplementaciÃ³n sin migraciones: crea una fila sentinel con name = "[NO_DISEASES_ACK]".
+ * El listado pÃºblico de enfermedades la ocultarÃ¡.
  */
 export async function ackNoDiseasesForPet(req: Request, res: Response) {
   const userId = (req as any).userId as string;
@@ -149,14 +149,14 @@ export async function createPet(req: Request, res: Response) {
         select: { id: true, createdAt: true },
       });
 
-      // 2) Si hay peso inicial, insertar histórico por la RELACIÓN (independiente del nombre del modelo)
+      // 2) Si hay peso inicial, insertar histÃ³rico por la RELACIÃ“N (independiente del nombre del modelo)
       if (rounded != null) {
         await tx.pet.update({
           where: { id: created.id },
           data: {
             weights: {
               create: {
-                // usamos la fecha de creación de la mascota para alinear el histórico
+                // usamos la fecha de creaciÃ³n de la mascota para alinear el histÃ³rico
                 date: created.createdAt,
                 weightKg: rounded,
               },
@@ -208,7 +208,7 @@ export async function updatePet(req: Request, res: Response) {
       species: b.species ?? undefined,
       sex: b.sex ?? undefined,
       breed: b.breed ?? undefined,
-      birthDate: validBirth,                                   // ⟵ NUEVO
+      birthDate: validBirth,                                   // âŸµ NUEVO
       size: b.size ?? undefined,
       weightKg: typeof b.weightKg === 'number' ? b.weightKg : undefined,
       sterilized: typeof b.sterilized === 'boolean' ? b.sterilized : undefined,
@@ -246,7 +246,7 @@ export async function deletePet(req: Request, res: Response) {
 
 
 // ============================================================
-//                        FICHA CLÍNICA
+//                        FICHA CLÃNICA
 // ============================================================
 
 export async function getClinical(req: Request, res: Response) {
@@ -383,7 +383,7 @@ export async function listDiseases(req: Request, res: Response) {
   const diseases = await prisma.disease.findMany({
     where: {
       petId,
-      name: { not: NO_DISEASES_ACK_NAME }, // ⬅️ oculta el ACK
+      name: { not: NO_DISEASES_ACK_NAME }, // â¬…ï¸ oculta el ACK
     },
     orderBy: { diagnosedAt: 'desc' },
   });
@@ -457,14 +457,14 @@ export async function listWeights(req: Request, res: Response) {
   });
   if (!pet) return res.sendStatus(404);
 
-  // Traer históricos (más recientes primero)
+  // Traer histÃ³ricos (mÃ¡s recientes primero)
   const historics = await prisma.weightHistory.findMany({
     where: { petId },
     orderBy: { date: "desc" },
     select: { id: true, date: true, weightKg: true },
   });
 
-  // Helpers para rangos del día (evitar duplicados por hora distinta)
+  // Helpers para rangos del dÃ­a (evitar duplicados por hora distinta)
   const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
   const endOfDay   = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
 
@@ -477,7 +477,7 @@ export async function listWeights(req: Request, res: Response) {
         }
       : null;
 
-  // Si el current y un histórico caen el mismo día con el mismo valor, ocultamos el duplicado del histórico
+  // Si el current y un histÃ³rico caen el mismo dÃ­a con el mismo valor, ocultamos el duplicado del histÃ³rico
   let filteredHistorics = historics;
   if (current?.date && typeof current.weightKg === "number") {
     const d = new Date(current.date);
@@ -510,21 +510,21 @@ export async function addWeight(req: Request, res: Response) {
 
   const newWeight = Number(b.weightKg);
   if (!newWeight || Number.isNaN(newWeight) || newWeight <= 0) {
-    return res.status(400).json({ error: "Peso inválido" });
+    return res.status(400).json({ error: "Peso invÃ¡lido" });
   }
 
   // Fecha del nuevo peso (si no viene, hoy)
   const newDate = b.date ? new Date(b.date) : new Date();
 
-  // Fecha a la que se “anota” el peso anterior como histórico
+  // Fecha a la que se â€œanotaâ€ el peso anterior como histÃ³rico
   const archiveDate = pet.updatedAt ?? pet.createdAt ?? new Date();
 
   const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
   const endOfDay   = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
 
   await prisma.$transaction(async (tx) => {
-    // 1) Si había peso actual, lo pasamos a histórico (en la fecha del "anterior current"),
-    //    evitando duplicar si ya existe igual valor el mismo día.
+    // 1) Si habÃ­a peso actual, lo pasamos a histÃ³rico (en la fecha del "anterior current"),
+    //    evitando duplicar si ya existe igual valor el mismo dÃ­a.
     if (typeof pet.weightKg === "number") {
       const s = startOfDay(archiveDate);
       const e = endOfDay(archiveDate);
@@ -551,8 +551,8 @@ export async function addWeight(req: Request, res: Response) {
       select: { id: true },
     });
 
-    // 3) Registrar explícitamente el nuevo peso en históricos en su propia fecha,
-    //    evitando duplicar (mismo día, mismo valor).
+    // 3) Registrar explÃ­citamente el nuevo peso en histÃ³ricos en su propia fecha,
+    //    evitando duplicar (mismo dÃ­a, mismo valor).
     const s2 = startOfDay(newDate);
     const e2 = endOfDay(newDate);
     const existsNew = await tx.weightHistory.findFirst({
@@ -575,7 +575,7 @@ export async function addWeight(req: Request, res: Response) {
   return listWeights(req, res);
 }
 
-// ELIMINAR: solo borra históricos (si envían "current" no encontrará nada → 404)
+// ELIMINAR: solo borra histÃ³ricos (si envÃ­an "current" no encontrarÃ¡ nada â†’ 404)
 export async function deleteWeight(req: Request, res: Response) {
   const userId = (req as any).userId as string;
   const { petId, weightId } = req.params;
@@ -593,7 +593,7 @@ export async function deleteWeight(req: Request, res: Response) {
 
 
 // ============================================================
-//                        NUTRICIÓN
+//                        NUTRICIÃ“N
 // ============================================================
 
 // ------------------------------------------------------------
@@ -608,11 +608,11 @@ export async function getNutrition(req: Request, res: Response) {
   });
   if (!pet) return res.sendStatus(404);
 
-  // Si petId es UNIQUE en nutritionProfile, esto está OK.
+  // Si petId es UNIQUE en nutritionProfile, esto estÃ¡ OK.
   const np = await prisma.nutritionProfile.findUnique({ where: { petId } });
   if (!np) return res.json(null);
 
-  // 🔁 Al responder: arrays reales (no strings)
+  // ðŸ” Al responder: arrays reales (no strings)
   return res.json({
     ...np,
     preferredFoods: JSONHelper.toArray<string>(np.preferredFoods),
@@ -668,9 +668,9 @@ export async function upsertNutrition(req: Request, res: Response) {
       const avg = DOG_BREED_AVG_WEIGHT[pet.breed.toUpperCase().trim()];
       if (avg) weightKg = avg;
     }
-    if (!weightKg || weightKg <= 0) weightKg = 10; // fallback mínimo
+    if (!weightKg || weightKg <= 0) weightKg = 10; // fallback mÃ­nimo
 
-    // Defaults dinámicos
+    // Defaults dinÃ¡micos
     const defaults = computeNutritionDefaults({
       size: pet.size ?? undefined,
       weightKg,
@@ -697,7 +697,7 @@ export async function upsertNutrition(req: Request, res: Response) {
       waterIntakeMl: num(b.waterIntakeMl),
     });
 
-    // ⚠️ 'weightKg' NO es campo de nutritionProfile → lo excluimos del payload a Prisma
+    // âš ï¸ 'weightKg' NO es campo de nutritionProfile â†’ lo excluimos del payload a Prisma
     const { weightKg: _omitWeightKg, ...dataForNutrition } = data;
 
     // Antes de guardar: serializar arrays a texto JSON
@@ -710,7 +710,7 @@ export async function upsertNutrition(req: Request, res: Response) {
       supplements: JSONHelper.toText(dataForNutrition.supplements),
     };
 
-    // Upsert por petId (requiere índice único en petId)
+    // Upsert por petId (requiere Ã­ndice Ãºnico en petId)
     const saved = await prisma.nutritionProfile.upsert({
       where: { petId },
       update: prismaData,
@@ -753,3 +753,5 @@ export async function uploadPetPhoto(req: Request, res: Response) {
 
   return res.json({ photoUrl: url });
 }
+
+

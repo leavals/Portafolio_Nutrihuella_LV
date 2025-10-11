@@ -5,7 +5,7 @@ import { api } from "@/lib/api";
 import Image from "next/image";
 import { Plus, PawPrint, Trash2 } from "lucide-react";
 import AddPetModal from "@/components/pets/AddPetModal";
-import { SIZE_LABELS } from "@/constans/pets";
+import { SIZE_LABELS } from "@/constants/pets";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui";
 
@@ -15,7 +15,7 @@ export type Pet = {
   species: "DOG" | "CAT" | "OTHER";
   breed?: string | null;
   sex: "MALE" | "FEMALE";
-  size?: import("@/constans/pets").PetSize | null;
+  size?: import("@/constants/pets").PetSize | null;
   weightKg?: number | null;
   photoUrl?: string | null;
   sterilized?: boolean | null;

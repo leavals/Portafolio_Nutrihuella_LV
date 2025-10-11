@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { Card, Button } from "@/components/ui";
-import { PetSize, SIZE_LABELS } from "@/constans/pets";
+import { PetSize, SIZE_LABELS } from "@/constants/pets";
 
 // ----------------------
 // Tipos de datos

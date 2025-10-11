@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
-import { Card } from "@/components/ui";
+import { Button, Card } from "@/components/ui";
 import clsx from "clsx";
 
 export default function PetTabsLayout({ children }: { children: React.ReactNode }) {
@@ -21,14 +21,15 @@ export default function PetTabsLayout({ children }: { children: React.ReactNode 
   ];
 
   const isActive = (href: string) => {
-    // Base exacta o con slash; subrutas empiezan por href
     if (href === base) return pathname === href || pathname === `${href}/`;
     return pathname.startsWith(href);
   };
 
+  // Detectar si estamos en la pestaña "Resumen"
+  const isResumenPage = pathname === base || pathname === `${base}/`;
+
   return (
     <div className="space-y-4">
-      {/* Barra de pestañas persistente */}
       <Card>
         <div className="flex items-center justify-between gap-3">
           <nav className="flex gap-2 overflow-x-auto pb-1">
@@ -47,15 +48,28 @@ export default function PetTabsLayout({ children }: { children: React.ReactNode 
             ))}
           </nav>
 
-          <div className="shrink-0">
+          <div className="shrink-0 flex items-center gap-2">
             <Link href={`${base}/edit`} className="btn btn-outline">
               Editar
             </Link>
+
+            {isResumenPage ? (
+              <Link href="/pets" className="underline">
+                <Button variant="primary" className="text-white">
+                  ← Volver a mascotas
+                </Button>
+              </Link>
+            ) : (
+              <Link href={`/pets/${id}`}>
+                <Button variant="primary" className="text-white">
+                  ← Volver
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
       </Card>
 
-      {/* Contenido específico de cada subruta */}
       <div>{children}</div>
     </div>
   );

@@ -10,19 +10,44 @@
 
 import type { Request, Response } from 'express';
 import { prisma } from '../services/prisma.js';
+import { computeNutritionDefaults, mergeNutritionDefaults, DOG_BREED_AVG_WEIGHT } from '../config/nutrition-defaults.js';
+import { JSONHelper } from "../lib/jsonText.js"; // Asumo que tienes este helper para convertir arrays a JSON strings
 
 // ------------------ Helpers JSON/fecha ------------------
-// Guardamos arreglos como string JSON en la BD (SQLite sin tipo JSON).
+// Adaptador local: delega en el helper global
 const JSONText = {
-  toText: (v?: string[] | null) => (v ? JSON.stringify(v) : null),
-  fromText: (v?: string | null) => {
-    if (!v) return [] as string[];
-    try { return JSON.parse(v) as string[]; } catch { return []; }
-  },
+  toText: (v?: string[] | null): string | null =>
+    v == null ? null : JSONHelper.toText(v),
+  fromText: (v?: string | null): string[] =>
+    JSONHelper.toArray<string>(v),
 };
 
-// Convierte una fecha tipo 'YYYY-MM-DD' (string) a ISO, o null/undefined.
-const toISOorNull = (s?: string | null) => (s ? new Date(s).toISOString() : null);
+// Convierte 'YYYY-MM-DD' a ISO en UTC sin desfase local.
+// Si recibe otra cosa parseable, intenta parsear; si falla, null.
+const toISOorNull = (s?: string | null) => {
+  if (!s) return null;
+  // Caso 'YYYY-MM-DD'
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (m) {
+    const [_, yy, mm, dd] = m;
+    const iso = new Date(Date.UTC(Number(yy), Number(mm) - 1, Number(dd))).toISOString();
+    return iso;
+  }
+  // Caso genérico parseable por Date
+  const t = Date.parse(s);
+  return Number.isNaN(t) ? null : new Date(t).toISOString();
+};
+
+// (opcional) helper para admitir números que pueden venir como string
+const num = (v: unknown): number | undefined => {
+  if (typeof v === "number" && !Number.isNaN(v)) return v;
+  if (typeof v === "string" && v.trim() !== "") {
+    const n = Number(v);
+    if (!Number.isNaN(n)) return n;
+  }
+  return undefined;
+};
+
 
 // Sentinel para marcar "sin enfermedades"
 const NO_DISEASES_ACK_NAME = "[NO_DISEASES_ACK]";
@@ -97,23 +122,62 @@ export async function listPets(req: Request, res: Response) {
 
 export async function createPet(req: Request, res: Response) {
   const userId = (req as any).userId as string;
-  const { name, species, sex, breed, age, size , weightKg, sterilized } = req.body as any;
+  const { name, species, sex, breed, birthDate, size, weightKg, sterilized } = req.body as any;
 
-  const pet = await prisma.pet.create({
-    data: {
-      ownerId: userId,
-      name,
-      species: species ?? 'DOG',
-      sex: sex ?? null,
-      breed: breed ?? null,
-      age: typeof age === 'number' ? age : null,
-      size: size ?? 'MEDIUM',
-      weightKg: typeof weightKg === 'number' ? weightKg : null,
-      sterilized: typeof sterilized === 'boolean' ? sterilized : false,
-    },
-  });
-  return res.status(201).json(pet);
+  const parsedBirth = birthDate ? new Date(birthDate) : null;
+  const validBirth = parsedBirth && !isNaN(parsedBirth.getTime()) ? parsedBirth : null;
+
+  try {
+    const pet = await prisma.$transaction(async (tx) => {
+      const weightNum = Number(weightKg);
+      const hasWeight = !isNaN(weightNum) && weightNum > 0;
+      const rounded = hasWeight ? Math.round(weightNum * 10) / 10 : null;
+
+      // 1) Crear mascota
+      const created = await tx.pet.create({
+        data: {
+          ownerId: userId,
+          name,
+          species: species ?? "DOG",
+          sex: sex ?? null,
+          breed: breed ?? null,
+          birthDate: validBirth,
+          size: size ?? "MEDIUM",
+          weightKg: rounded,
+          sterilized: typeof sterilized === "boolean" ? sterilized : false,
+        },
+        select: { id: true, createdAt: true },
+      });
+
+      // 2) Si hay peso inicial, insertar histórico por la RELACIÓN (independiente del nombre del modelo)
+      if (rounded != null) {
+        await tx.pet.update({
+          where: { id: created.id },
+          data: {
+            weights: {
+              create: {
+                // usamos la fecha de creación de la mascota para alinear el histórico
+                date: created.createdAt,
+                weightKg: rounded,
+              },
+            },
+          },
+          select: { id: true },
+        });
+      }
+
+      return created;
+    });
+
+    return res.status(201).json(pet);
+  } catch (e: any) {
+    console.error("Error creando mascota:", e);
+    return res.status(500).json({ error: e.message || "Error al crear mascota" });
+  }
 }
+
+
+
 
 export async function getPet(req: Request, res: Response) {
   const userId = (req as any).userId as string;
@@ -132,6 +196,11 @@ export async function updatePet(req: Request, res: Response) {
   if (!exists) return res.sendStatus(404);
 
   const b = req.body as any;
+  const parsedBirth = b.birthDate ? new Date(b.birthDate) : undefined;
+  const validBirth = parsedBirth !== undefined
+    ? (!parsedBirth || isNaN(parsedBirth.getTime()) ? null : parsedBirth)
+    : undefined;
+
   const updated = await prisma.pet.update({
     where: { id: petId },
     data: {
@@ -139,7 +208,7 @@ export async function updatePet(req: Request, res: Response) {
       species: b.species ?? undefined,
       sex: b.sex ?? undefined,
       breed: b.breed ?? undefined,
-      age: typeof b.age === 'number' ? b.age : undefined,
+      birthDate: validBirth,                                   // ⟵ NUEVO
       size: b.size ?? undefined,
       weightKg: typeof b.weightKg === 'number' ? b.weightKg : undefined,
       sterilized: typeof b.sterilized === 'boolean' ? b.sterilized : undefined,
@@ -148,16 +217,33 @@ export async function updatePet(req: Request, res: Response) {
   return res.json(updated);
 }
 
+
 export async function deletePet(req: Request, res: Response) {
   const userId = (req as any).userId as string;
   const { petId } = req.params;
 
-  const exists = await prisma.pet.findFirst({ where: { id: petId, ownerId: userId } });
-  if (!exists) return res.sendStatus(404);
+  try {
+    // Verificar que la mascota exista
+    const exists = await prisma.pet.findFirst({ where: { id: petId, ownerId: userId } });
+    if (!exists) return res.sendStatus(404);
 
-  await prisma.pet.delete({ where: { id: petId } });
-  return res.sendStatus(204);
+    // Eliminar registros relacionados
+    await prisma.nutritionProfile.deleteMany({ where: { petId } });
+    await prisma.disease.deleteMany({ where: { petId } });
+    await prisma.vaccination.deleteMany({ where: { petId } });
+    await prisma.weightHistory.deleteMany({ where: { petId } });
+    await prisma.clinicalRecord.deleteMany({ where: { petId } });
+
+    // Finalmente eliminar la mascota
+    await prisma.pet.delete({ where: { id: petId } });
+
+    return res.sendStatus(204);
+  } catch (error) {
+    console.error("Error eliminando mascota:", error);
+    return res.status(500).json({ message: "Error interno al eliminar la mascota", error });
+  }
 }
+
 
 // ============================================================
 //                        FICHA CLÍNICA
@@ -357,38 +443,139 @@ export async function deleteDisease(req: Request, res: Response) {
 
 // ------------------ Pesos ------------------
 
+
+// --------------- Pesos ------------------
+
 export async function listWeights(req: Request, res: Response) {
   const userId = (req as any).userId as string;
   const { petId } = req.params;
 
-  const pet = await prisma.pet.findFirst({ where: { id: petId, ownerId: userId } });
+  // Verificar que la mascota pertenece al usuario y obtener peso actual + fechas
+  const pet = await prisma.pet.findFirst({
+    where: { id: petId, ownerId: userId },
+    select: { id: true, weightKg: true, createdAt: true, updatedAt: true },
+  });
   if (!pet) return res.sendStatus(404);
 
-  const rows = await prisma.weight.findMany({
+  // Traer históricos (más recientes primero)
+  const historics = await prisma.weightHistory.findMany({
     where: { petId },
-    orderBy: { date: 'desc' },
+    orderBy: { date: "desc" },
+    select: { id: true, date: true, weightKg: true },
   });
-  return res.json(rows);
+
+  // Helpers para rangos del día (evitar duplicados por hora distinta)
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+  const endOfDay   = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+
+  // Construir "current" desde pet
+  const current =
+    typeof pet.weightKg === "number"
+      ? {
+          weightKg: pet.weightKg,
+          date: (pet.updatedAt ?? pet.createdAt)?.toISOString() ?? null,
+        }
+      : null;
+
+  // Si el current y un histórico caen el mismo día con el mismo valor, ocultamos el duplicado del histórico
+  let filteredHistorics = historics;
+  if (current?.date && typeof current.weightKg === "number") {
+    const d = new Date(current.date);
+    const s = startOfDay(d);
+    const e = endOfDay(d);
+    filteredHistorics = historics.filter(
+      (h) =>
+        !(new Date(h.date) >= s &&
+          new Date(h.date) <= e &&
+          Number(h.weightKg) === Number(current.weightKg))
+    );
+  }
+
+  return res.json({
+    current: current ?? null,
+    historics: filteredHistorics,
+  });
 }
 
 export async function addWeight(req: Request, res: Response) {
   const userId = (req as any).userId as string;
   const { petId } = req.params;
+  const b = req.body as any;
 
-  const pet = await prisma.pet.findFirst({ where: { id: petId, ownerId: userId } });
+  const pet = await prisma.pet.findFirst({
+    where: { id: petId, ownerId: userId },
+    select: { id: true, weightKg: true, createdAt: true, updatedAt: true },
+  });
   if (!pet) return res.sendStatus(404);
 
-  const b = req.body as any;
-  const row = await prisma.weight.create({
-    data: {
-      petId,
-      date: b.date ? new Date(b.date) : new Date(),
-      weightKg: Number(b.weightKg),
-    },
+  const newWeight = Number(b.weightKg);
+  if (!newWeight || Number.isNaN(newWeight) || newWeight <= 0) {
+    return res.status(400).json({ error: "Peso inválido" });
+  }
+
+  // Fecha del nuevo peso (si no viene, hoy)
+  const newDate = b.date ? new Date(b.date) : new Date();
+
+  // Fecha a la que se “anota” el peso anterior como histórico
+  const archiveDate = pet.updatedAt ?? pet.createdAt ?? new Date();
+
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+  const endOfDay   = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+
+  await prisma.$transaction(async (tx) => {
+    // 1) Si había peso actual, lo pasamos a histórico (en la fecha del "anterior current"),
+    //    evitando duplicar si ya existe igual valor el mismo día.
+    if (typeof pet.weightKg === "number") {
+      const s = startOfDay(archiveDate);
+      const e = endOfDay(archiveDate);
+      const exists = await tx.weightHistory.findFirst({
+        where: {
+          petId,
+          date: { gte: s, lte: e },
+          weightKg: pet.weightKg,
+        },
+        select: { id: true },
+      });
+
+      if (!exists) {
+        await tx.weightHistory.create({
+          data: { petId, date: archiveDate, weightKg: pet.weightKg },
+        });
+      }
+    }
+
+    // 2) Actualizar el peso actual de la mascota (esto setea updatedAt)
+    await tx.pet.update({
+      where: { id: petId },
+      data: { weightKg: newWeight, updatedAt: new Date() },
+      select: { id: true },
+    });
+
+    // 3) Registrar explícitamente el nuevo peso en históricos en su propia fecha,
+    //    evitando duplicar (mismo día, mismo valor).
+    const s2 = startOfDay(newDate);
+    const e2 = endOfDay(newDate);
+    const existsNew = await tx.weightHistory.findFirst({
+      where: {
+        petId,
+        date: { gte: s2, lte: e2 },
+        weightKg: newWeight,
+      },
+      select: { id: true },
+    });
+
+    if (!existsNew) {
+      await tx.weightHistory.create({
+        data: { petId, date: newDate, weightKg: newWeight },
+      });
+    }
   });
-  return res.status(201).json(row);
+
+  // Responder con el shape consistente
+  return listWeights(req, res);
 }
 
+// ELIMINAR: solo borra históricos (si envían "current" no encontrará nada → 404)
 export async function deleteWeight(req: Request, res: Response) {
   const userId = (req as any).userId as string;
   const { petId, weightId } = req.params;
@@ -396,73 +583,155 @@ export async function deleteWeight(req: Request, res: Response) {
   const pet = await prisma.pet.findFirst({ where: { id: petId, ownerId: userId } });
   if (!pet) return res.sendStatus(404);
 
-  await prisma.weight.delete({ where: { id: weightId } });
+  const del = await prisma.weightHistory.deleteMany({
+    where: { id: weightId, petId },
+  });
+
+  if (del.count === 0) return res.sendStatus(404);
   return res.sendStatus(204);
 }
+
 
 // ============================================================
 //                        NUTRICIÓN
 // ============================================================
 
+// ------------------------------------------------------------
+// Obtener ficha nutricional
+// ------------------------------------------------------------
 export async function getNutrition(req: Request, res: Response) {
   const userId = (req as any).userId as string;
   const { petId } = req.params;
 
-  const pet = await prisma.pet.findFirst({ where: { id: petId, ownerId: userId } });
+  const pet = await prisma.pet.findFirst({
+    where: { id: petId, ownerId: userId },
+  });
   if (!pet) return res.sendStatus(404);
 
+  // Si petId es UNIQUE en nutritionProfile, esto está OK.
   const np = await prisma.nutritionProfile.findUnique({ where: { petId } });
   if (!np) return res.json(null);
 
+  // 🔁 Al responder: arrays reales (no strings)
   return res.json({
     ...np,
-    preferredFoods: JSONText.fromText(np.preferredFoods),
-    forbiddenFoods: JSONText.fromText(np.forbiddenFoods),
-    intolerances:   JSONText.fromText(np.intolerances),
-    foodAllergies:  JSONText.fromText(np.foodAllergies),
-    supplements:    JSONText.fromText(np.supplements),
+    preferredFoods: JSONHelper.toArray<string>(np.preferredFoods),
+    forbiddenFoods: JSONHelper.toArray<string>(np.forbiddenFoods),
+    intolerances: JSONHelper.toArray<string>(np.intolerances),
+    foodAllergies: JSONHelper.toArray<string>(np.foodAllergies),
+    supplements: JSONHelper.toArray<string>(np.supplements),
   });
 }
 
-export async function upsertNutrition(req: Request, res: Response) {
+// ------------------------------------------------------------
+// Obtener defaults nutricionales
+// ------------------------------------------------------------
+export async function getNutritionDefaults(req: Request, res: Response) {
   const userId = (req as any).userId as string;
   const { petId } = req.params;
 
-  const pet = await prisma.pet.findFirst({ where: { id: petId, ownerId: userId } });
+  const pet = await prisma.pet.findFirst({
+    where: { id: petId, ownerId: userId },
+  });
   if (!pet) return res.sendStatus(404);
 
-  const b = req.body as any;
-  const data = {
-    dietType:      b.dietType ?? 'RAW',
-    mealsPerDay:   b.mealsPerDay ? Number(b.mealsPerDay) : 2,
-    activityLevel: b.activityLevel ?? 'MODERATE',
-    goal:          b.goal ?? 'MAINTENANCE',
-
-    preferredFoods: JSONText.toText(b.preferredFoods),
-    forbiddenFoods: JSONText.toText(b.forbiddenFoods),
-    intolerances:   JSONText.toText(b.intolerances),
-    foodAllergies:  JSONText.toText(b.foodAllergies),
-    supplements:    JSONText.toText(b.supplements),
-
-    dailyCalories:  b.dailyCalories ? Number(b.dailyCalories) : null,
-    waterIntakeMl:  b.waterIntakeMl ? Number(b.waterIntakeMl) : null,
-    notes:          b.notes ?? null,
-  };
-
-  const np = await prisma.nutritionProfile.upsert({
-    where: { petId },
-    update: data,
-    create: { petId, ...data },
+  const defaults = computeNutritionDefaults({
+    size: pet.size ?? undefined,
+    weightKg: pet.weightKg ?? undefined,
+    breed: pet.breed ?? undefined,
   });
 
-  return res.json({
-    ...np,
-    preferredFoods: JSONText.fromText(np.preferredFoods),
-    forbiddenFoods: JSONText.fromText(np.forbiddenFoods),
-    intolerances:   JSONText.fromText(np.intolerances),
-    foodAllergies:  JSONText.fromText(np.foodAllergies),
-    supplements:    JSONText.fromText(np.supplements),
-  });
+  return res.json(defaults);
+}
+
+// ------------------------------------------------------------
+// Crear o actualizar ficha nutricional
+// ------------------------------------------------------------
+export async function upsertNutrition(req: Request, res: Response) {
+  try {
+    const userId = (req as any).userId as string;
+    const { petId } = req.params;
+
+    // Verificar que la mascota existe y pertenece al usuario
+    const pet = await prisma.pet.findFirst({
+      where: { id: petId, ownerId: userId },
+    });
+    if (!pet) {
+      return res.status(404).json({ error: "Mascota no encontrada" });
+    }
+
+    const b = req.body as any;
+
+    // Determinar peso base (solo para calcular defaults, NO se guarda en nutritionProfile)
+    let weightKg: number = pet.weightKg ?? 0;
+    if ((!weightKg || weightKg <= 0) && pet.breed) {
+      const avg = DOG_BREED_AVG_WEIGHT[pet.breed.toUpperCase().trim()];
+      if (avg) weightKg = avg;
+    }
+    if (!weightKg || weightKg <= 0) weightKg = 10; // fallback mínimo
+
+    // Defaults dinámicos
+    const defaults = computeNutritionDefaults({
+      size: pet.size ?? undefined,
+      weightKg,
+      breed: pet.breed ?? undefined,
+    });
+
+    // Saneamos notas para que no quede undefined
+    const notes =
+      typeof b.notes === "string" && b.notes.trim() !== "" ? b.notes : undefined;
+
+    // Mezcla con datos del body (merge ignora undefined, null y [])
+    const data = mergeNutritionDefaults(defaults, {
+      dietType: b.dietType,
+      mealsPerDay: num(b.mealsPerDay),
+      activityLevel: b.activityLevel,
+      goal: b.goal,
+      preferredFoods: b.preferredFoods,
+      forbiddenFoods: b.forbiddenFoods,
+      intolerances: b.intolerances,
+      foodAllergies: b.foodAllergies,
+      supplements: b.supplements,
+      notes,
+      dailyCalories: num(b.dailyCalories),
+      waterIntakeMl: num(b.waterIntakeMl),
+    });
+
+    // ⚠️ 'weightKg' NO es campo de nutritionProfile → lo excluimos del payload a Prisma
+    const { weightKg: _omitWeightKg, ...dataForNutrition } = data;
+
+    // Antes de guardar: serializar arrays a texto JSON
+    const prismaData = {
+      ...dataForNutrition,
+      preferredFoods: JSONHelper.toText(dataForNutrition.preferredFoods),
+      forbiddenFoods: JSONHelper.toText(dataForNutrition.forbiddenFoods),
+      intolerances: JSONHelper.toText(dataForNutrition.intolerances),
+      foodAllergies: JSONHelper.toText(dataForNutrition.foodAllergies),
+      supplements: JSONHelper.toText(dataForNutrition.supplements),
+    };
+
+    // Upsert por petId (requiere índice único en petId)
+    const saved = await prisma.nutritionProfile.upsert({
+      where: { petId },
+      update: prismaData,
+      create: { petId, ...prismaData },
+    });
+
+    // Al responder: devolver arrays deserializados
+    return res.json({
+      ...saved,
+      preferredFoods: JSONHelper.toArray<string>(saved.preferredFoods),
+      forbiddenFoods: JSONHelper.toArray<string>(saved.forbiddenFoods),
+      intolerances: JSONHelper.toArray<string>(saved.intolerances),
+      foodAllergies: JSONHelper.toArray<string>(saved.foodAllergies),
+      supplements: JSONHelper.toArray<string>(saved.supplements),
+    });
+  } catch (error) {
+    console.error("Error upserting nutrition:", error);
+    return res
+      .status(500)
+      .json({ error: "Error al guardar la ficha nutricional" });
+  }
 }
 
 // ============================================================

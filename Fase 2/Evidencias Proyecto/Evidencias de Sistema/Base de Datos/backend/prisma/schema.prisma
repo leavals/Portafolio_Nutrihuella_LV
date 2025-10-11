@@ -14,59 +14,59 @@ generator client {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
+  id           String               @id @default(cuid())
+  email        String               @unique
   passwordHash String?
   name         String?
-  googleId     String?  @unique
+  googleId     String?              @unique
   picture      String?
   pets         Pet[]
-  pantry       PantryItem[]   // 👈 despensa general del usuario
+  pantry       PantryItem[] // 👈 despensa general del usuario
   resetTokens  PasswordResetToken[]
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
 }
 
 model Pet {
-  id        String   @id @default(cuid())
-  ownerId   String
-  owner     User     @relation(fields: [ownerId], references: [id])
-  name      String
-  species   String   @default("DOG")
-  sex       String?
-  breed     String?
-  age       Int?
-  size      String?  @default("MEDIUM")
-  weightKg  Float?
-  sterilized Boolean  @default(false)
-  clinical  ClinicalRecord?
-  nutrition NutritionProfile?
-  vaccines  Vaccination[]
-  diseases  Disease[]
-  weights   Weight[]
-  photoUrl  String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String            @id @default(cuid())
+  ownerId    String
+  owner      User              @relation(fields: [ownerId], references: [id])
+  name       String
+  species    String            @default("DOG")
+  sex        String?
+  breed      String?
+  birthDate  DateTime?
+  size       String?           @default("MEDIUM")
+  weightKg   Float?
+  sterilized Boolean           @default(false)
+  clinical   ClinicalRecord?
+  nutrition  NutritionProfile?
+  vaccines   Vaccination[]
+  diseases   Disease[]
+  weights    WeightHistory[]
+  photoUrl   String?
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
 
   @@index([ownerId])
 }
 
 model PantryItem {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   ownerId     String
-  owner       User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  owner       User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   name        String
   // Para facilitar matching en Sprint 4 (IA) guardamos nombre normalizado y keywords CSV
   normalized  String?
-  keywordsCsv String?  // ej: "pollo,pechuga,ave"
+  keywordsCsv String? // ej: "pollo,pechuga,ave"
   quantity    Float?
-  unit        String?  // g | kg | ml | L | unid
-  category    String?  // PROTEIN | VEGGIE | FRUIT | CARB | FAT | SUPPLEMENT ...
+  unit        String? // g | kg | ml | L | unid
+  category    String? // PROTEIN | VEGGIE | FRUIT | CARB | FAT | SUPPLEMENT ...
   purchasedAt DateTime?
   expiresAt   DateTime?
   notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([ownerId])
   @@index([expiresAt])
@@ -74,9 +74,9 @@ model PantryItem {
 }
 
 model ClinicalRecord {
-  id                String  @id @default(cuid())
-  petId             String  @unique
-  pet               Pet     @relation(fields: [petId], references: [id])
+  id                String    @id @default(cuid())
+  petId             String    @unique
+  pet               Pet       @relation(fields: [petId], references: [id])
   allergies         String?
   chronicConditions String?
   medications       String?
@@ -106,18 +106,21 @@ model Disease {
   pet         Pet      @relation(fields: [petId], references: [id])
   name        String
   diagnosedAt DateTime
-  status      String   @default("ACTIVE") // ACTIVE | RESOLVED
+  status      String   @default("ACTIVE") // ACTIVE | RESOLVED | CRONIC
+
   @@index([petId])
 }
 
-model Weight {
-  id       String   @id @default(cuid())
-  petId    String
-  pet      Pet      @relation(fields: [petId], references: [id])
-  date     DateTime
-  weightKg Float
+model WeightHistory {
+  id        String   @id @default(cuid())
+  petId     String
+  pet       Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+  date      DateTime @default(now())
+  weightKg  Float
+  createdAt DateTime @default(now())
 
-  @@index([petId])
+  @@index([petId, date])
+  @@map("Weight")
 }
 
 model NutritionProfile {
@@ -128,10 +131,10 @@ model NutritionProfile {
   mealsPerDay    Int     @default(2)
   activityLevel  String  @default("MODERATE")
   goal           String  @default("MAINTENANCE")
-  foodAllergies  String?   // CSV; ej: "pollo,gluten,maní"
-  intolerances   String?   // CSV
-  forbiddenFoods String?   // CSV; ej: "chocolate,uva,cebolla"
-  preferredFoods String?   // CSV; ej: "pavo,zanahoria,arroz"
+  foodAllergies  String? // CSV; ej: "pollo,gluten,maní"
+  intolerances   String? // CSV
+  forbiddenFoods String? // CSV; ej: "chocolate,uva,cebolla"
+  preferredFoods String? // CSV; ej: "pavo,zanahoria,arroz"
   supplements    String?
   dailyCalories  Int?
   waterIntakeMl  Int?
@@ -139,10 +142,10 @@ model NutritionProfile {
 }
 
 model PasswordResetToken {
-  id        String   @id @default(cuid())
-  token     String   @unique
+  id        String    @id @default(cuid())
+  token     String    @unique
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   usedAt    DateTime?
 }

@@ -6,7 +6,7 @@ export const CreatePetSchema = z.object({
   species: z.string().default('DOG'),
   sex: z.string().optional(),
   breed: z.string().optional(),
-  age: z.number().int().nonnegative().nullable().optional(),
+  birthDate: z.coerce.date().nullable().optional(),
   size: SizeEnum.optional().default("MEDIUM"),
   weightKg: z.number().positive().nullable().optional(),
   sterilized: z.boolean().optional().default(false),

@@ -37,6 +37,10 @@ frontend/.env.local
 backend/prisma/*.db
 backend/prisma/*.db-journal
 backend/prisma/*.sqlite
+*.db
+backend/prisma/dev.db
+dev.db
+
 
 # COSA RARA EN WINDOWS
 backend/nul

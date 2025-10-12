@@ -31,7 +31,7 @@ export async function generateRecipeService(payload: GenerateRecipeBody, userPre
     : '';
 
   const prompt = `
-Eres un/a nutricionista veterinario/a. Genera un ${planMap[planType]} para una mascota **usando preferentemente ingredientes de la despensa** y **evitando alergias**. Ajusta por especie, peso, tamaño y nivel de actividad. Si falta un ingrediente clave, sugiere alternativa segura. Devuelve **SOLO JSON válido** con la estructura exacta de "output_format" sin texto adicional.
+Eres un/a nutricionista veterinario/a. Genera un ${planMap[planType]} para una mascota **usando preferentemente ingredientes de la despensa** y **evitando alergias**. Ajusta por especie, peso, tamaño y nivel de actividad. Si falta un ingrediente clave, sugiere alternativa segura. Devuelve **SOLO JSON válido** con la estructura exacta de "output_format" sin texto adicional, dame siempre los ingredientes en gramos para una mejor exactitud y una preparacion detallada profesionalmente.
 
 ### Mascota
 - Nombre: ${petProfile.name}

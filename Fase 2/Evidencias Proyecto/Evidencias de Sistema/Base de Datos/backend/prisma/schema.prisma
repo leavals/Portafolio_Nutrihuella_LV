@@ -1,16 +1,14 @@
+// ============================================== 
+// NutriHuella – Prisma schema (SQLite - desbloqueo)
 // ==============================================
-// NutriHuella – Prisma schema
-// Sprint 3: Despensa general por usuario (PantryItem)
-//  - Endpoints filtran por mascota usando NutritionProfile
-// ==============================================
+
+generator client {
+  provider = "prisma-client-js"
+}
 
 datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
-}
-
-generator client {
-  provider = "prisma-client-js"
 }
 
 model User {
@@ -23,8 +21,14 @@ model User {
   pets         Pet[]
   pantry       PantryItem[] // 👈 despensa general del usuario
   resetTokens  PasswordResetToken[]
-  createdAt    DateTime             @default(now())
-  updatedAt    DateTime             @updatedAt
+
+  // 👇 Back-relations para recetas
+  recipes   Recipe[]
+  favorites FavoriteRecipe[]
+  feedbacks RecipeFeedback[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Pet {
@@ -45,8 +49,12 @@ model Pet {
   diseases   Disease[]
   weights    WeightHistory[]
   photoUrl   String?
-  createdAt  DateTime          @default(now())
-  updatedAt  DateTime          @updatedAt
+
+  // 👇 Back-relation para recetas
+  recipes Recipe[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([ownerId])
 }
@@ -56,12 +64,11 @@ model PantryItem {
   ownerId     String
   owner       User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   name        String
-  // Para facilitar matching en Sprint 4 (IA) guardamos nombre normalizado y keywords CSV
   normalized  String?
-  keywordsCsv String? // ej: "pollo,pechuga,ave"
+  keywordsCsv String?
   quantity    Float?
-  unit        String? // g | kg | ml | L | unid
-  category    String? // PROTEIN | VEGGIE | FRUIT | CARB | FAT | SUPPLEMENT ...
+  unit        String?
+  category    String?
   purchasedAt DateTime?
   expiresAt   DateTime?
   notes       String?
@@ -131,10 +138,10 @@ model NutritionProfile {
   mealsPerDay    Int     @default(2)
   activityLevel  String  @default("MODERATE")
   goal           String  @default("MAINTENANCE")
-  foodAllergies  String? // CSV; ej: "pollo,gluten,maní"
+  foodAllergies  String? // CSV
   intolerances   String? // CSV
-  forbiddenFoods String? // CSV; ej: "chocolate,uva,cebolla"
-  preferredFoods String? // CSV; ej: "pavo,zanahoria,arroz"
+  forbiddenFoods String? // CSV
+  preferredFoods String? // CSV
   supplements    String?
   dailyCalories  Int?
   waterIntakeMl  Int?
@@ -150,28 +157,25 @@ model PasswordResetToken {
   usedAt    DateTime?
 }
 
-
-enum RecipePlanType {
-  BREAKFAST
-  LUNCH
-  DINNER
-  DAILY
-  WEEKLY
-}
+// ⚠️ Eliminado el enum RecipePlanType (SQLite no lo soporta)
+// ⚠️ JSON -> String en Recipe.content
 
 model Recipe {
-  id        String         @id @default(cuid())
+  id        String   @id @default(cuid())
   userId    String
   petId     String?
   title     String
-  planType  RecipePlanType
-  content   Json
-  createdAt DateTime       @default(now())
+  planType  String // e.g. "BREAKFAST" | "LUNCH" | ...
+  content   String // JSON serializado (el backend hace JSON.parse)
+  createdAt DateTime @default(now())
 
-  user      User           @relation(fields: [userId], references: [id])
-  pet       Pet?           @relation(fields: [petId], references: [id])
+  user      User             @relation(fields: [userId], references: [id])
+  pet       Pet?             @relation(fields: [petId], references: [id])
   favorites FavoriteRecipe[]
   feedback  RecipeFeedback[]
+
+  @@index([userId])
+  @@index([petId])
 }
 
 model FavoriteRecipe {
@@ -190,7 +194,7 @@ model RecipeFeedback {
   id        String   @id @default(cuid())
   userId    String
   recipeId  String
-  rating    Int      // -1 = dislike, 1 = like
+  rating    Int
   comment   String?
   createdAt DateTime @default(now())
 

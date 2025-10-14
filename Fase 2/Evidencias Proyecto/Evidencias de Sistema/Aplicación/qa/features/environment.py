@@ -14,7 +14,8 @@ from allure_commons.types import AttachmentType
 # ---------------- Selenium setup ----------------
 def before_all(context):
     opts = Options()
-    # opts.add_argument("--headless=new")   # si no quieres ver el navegador
+    # Descomenta si quieres headless en entornos CI:
+    # opts.add_argument("--headless=new")
     opts.add_argument("--disable-gpu")
     opts.add_argument("--window-size=1366,768")
 
@@ -22,10 +23,30 @@ def before_all(context):
     context.driver = Chrome(service=service, options=opts)
     context.driver.implicitly_wait(5)
 
-    context.base_url = os.getenv("BASE_URL", "http://localhost:3000")
+    # --- BASE_URL ---
+    context.base_url = os.getenv("BASE_URL", "http://localhost:3000").rstrip("/")
 
-    # Modo de screenshots: failed | step | final
-    context.shots_mode = os.getenv("ALLURE_SHOTS", "failed").strip().lower()
+    # --- CREDENCIALES QA (puedes cambiarlas aquí si usas otras) ---
+    # Si NO existen en el entorno, se setean por defecto:
+    qa_email = os.getenv("QA_EMAIL") or "qa.user@example.com"
+    qa_pass  = os.getenv("QA_PASSWORD") or "Password!123"
+
+    # Guárdalas en el contexto (para steps que quieran leer del context)
+    context.qa_email = qa_email
+    context.qa_password = qa_pass
+
+    # Y también en variables de entorno para steps que usan os.getenv(...)
+    os.environ.setdefault("QA_EMAIL", qa_email)
+    os.environ.setdefault("QA_PASSWORD", qa_pass)
+
+    # --- Allure shots mode: failed | step | final ---
+    shots = (os.getenv("ALLURE_SHOTS") or "failed").strip().lower()
+    context.shots_mode = shots
+
+    # Log útil al inicio (aparece en consola de behave)
+    print(f"[ENV] BASE_URL={context.base_url}")
+    print(f"[ENV] QA_EMAIL={qa_email}")
+    print(f"[ENV] ALLURE_SHOTS={context.shots_mode}")
 
 
 def after_all(context):
@@ -48,7 +69,8 @@ def _attach_screenshot(context, name: str):
 
 # ---------------- Hooks Behave ----------------
 def before_step(context, step):
-    # Si queremos evidencia de cada step (antes o después da igual; uso después para ver el resultado final).
+    # Si quisieras evidencia ANTES de cada step, podrías adjuntar aquí.
+    # Dejamos vacío para no duplicar capturas.
     pass
 
 

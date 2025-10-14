@@ -1,7 +1,7 @@
-// backend/src/middleware/auth.middleware.ts
+﻿// backend/src/middleware/auth.middleware.ts
 import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { env } from "../env.js";
+import { env } from "../env.ts";
 
 export interface JwtPayloadLike {
   sub?: string;
@@ -16,7 +16,7 @@ export interface JwtPayloadLike {
  * - Lee el token Bearer del header Authorization.
  * - Verifica con JWT_SECRET.
  * - Propaga ambos:
- *    (req as any).userId = string    // compat con código existente
+ *    (req as any).userId = string    // compat con cÃ³digo existente
  *    (req as any).user = { id, ... } // objeto rico para features nuevas
  */
 export function authGuard(req: Request, res: Response, next: NextFunction) {
@@ -29,25 +29,26 @@ export function authGuard(req: Request, res: Response, next: NextFunction) {
     const payload = jwt.verify(token, env.JWT_SECRET) as JwtPayloadLike;
 
     const userId = payload.sub || (payload as any).userId;
-    if (!userId) return res.status(401).json({ message: "Token inválido" });
+    if (!userId) return res.status(401).json({ message: "Token invÃ¡lido" });
 
     // Compatibilidad con controladores antiguos:
     (req as any).userId = userId;
 
-    // Nuevo objeto de usuario (por si el token trae más datos):
+    // Nuevo objeto de usuario (por si el token trae mÃ¡s datos):
     (req as any).user = {
       id: userId,
       email: payload.email,
       role: payload.role,
       is_admin: payload.is_admin ?? false,
-      // dejamos el resto del payload por si es útil:
+      // dejamos el resto del payload por si es Ãºtil:
       ...payload,
     };
 
     return next();
   } catch {
-    return res.status(401).json({ message: "Token inválido" });
+    return res.status(401).json({ message: "Token invÃ¡lido" });
   }
 }
 
 export default authGuard;
+

@@ -1,9 +1,9 @@
-// Registro / Login / Google Sign-In / Perfil / Forgot-Reset
+﻿// Registro / Login / Google Sign-In / Perfil / Forgot-Reset
 import type { Request, Response } from 'express';
-import { prisma } from '../services/prisma.js';
+import { prisma } from '../services/prisma.ts';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { env } from '../env.js';
+import { env } from '../env.ts';
 import { OAuth2Client } from 'google-auth-library';
 import crypto from 'node:crypto';
 
@@ -28,23 +28,23 @@ export async function login(req: Request, res: Response) {
   try {
     const { email, password } = req.body as { email: string; password: string };
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user || !user.passwordHash) return res.status(401).json({ message: 'Credenciales inválidas' });
+    if (!user || !user.passwordHash) return res.status(401).json({ message: 'Credenciales invÃ¡lidas' });
     const ok = await bcrypt.compare(password, user.passwordHash);
-    if (!ok) return res.status(401).json({ message: 'Credenciales inválidas' });
+    if (!ok) return res.status(401).json({ message: 'Credenciales invÃ¡lidas' });
     return res.json({ token: sign(user.id), user: { id: user.id, email: user.email, name: user.name ?? undefined } });
   } catch (e) {
     console.error('login error', e);
-    return res.status(500).json({ message: 'Error al iniciar sesión' });
+    return res.status(500).json({ message: 'Error al iniciar sesiÃ³n' });
   }
 }
 
 export async function googleLogin(req: Request, res: Response) {
   try {
-    if (!googleClient || !env.GOOGLE_CLIENT_ID) return res.status(503).json({ message: 'Google Sign-In no está configurado' });
+    if (!googleClient || !env.GOOGLE_CLIENT_ID) return res.status(503).json({ message: 'Google Sign-In no estÃ¡ configurado' });
     const { idToken } = req.body as { idToken: string };
     const ticket = await googleClient.verifyIdToken({ idToken, audience: env.GOOGLE_CLIENT_ID });
     const payload = ticket.getPayload();
-    if (!payload?.email) return res.status(401).json({ message: 'Token inválido' });
+    if (!payload?.email) return res.status(401).json({ message: 'Token invÃ¡lido' });
 
     const email = payload.email!, googleId = payload.sub!, name = payload.name ?? undefined;
     let user = await prisma.user.findFirst({ where: { OR: [{ email }, { googleId }] } });
@@ -77,7 +77,7 @@ export async function forgotPassword(req: Request, res: Response) {
 export async function resetPassword(req: Request, res: Response) {
   const { token, newPassword } = req.body as { token: string; newPassword: string };
   const row = await prisma.passwordResetToken.findUnique({ where: { token } });
-  if (!row || row.usedAt || row.expiresAt < new Date()) return res.status(400).json({ message: 'Token inválido o expirado' });
+  if (!row || row.usedAt || row.expiresAt < new Date()) return res.status(400).json({ message: 'Token invÃ¡lido o expirado' });
   const passwordHash = await bcrypt.hash(newPassword, 10);
   await prisma.$transaction([
     prisma.user.update({ where: { id: row.userId }, data: { passwordHash } }),
@@ -85,3 +85,5 @@ export async function resetPassword(req: Request, res: Response) {
   ]);
   return res.json({ ok: true });
 }
+
+

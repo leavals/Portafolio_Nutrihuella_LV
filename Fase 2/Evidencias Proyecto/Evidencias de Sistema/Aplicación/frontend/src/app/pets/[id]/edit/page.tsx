@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { Button, Card, Field, Input, Select } from "@/components/ui";
-import { DOG_BREEDS, PetSize, SIZES, SIZE_LABELS } from "@/constans/pets";
+import { DOG_BREEDS, PetSize, SIZES, SIZE_LABELS } from "@/constants/pets";
 
 
 type Pet = {

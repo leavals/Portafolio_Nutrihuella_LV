@@ -1,10 +1,12 @@
-import 'dotenv/config';
-
+// src/env.ts
 export const env = {
-  PORT: Number(process.env.PORT ?? 4000),
-  DATABASE_URL: process.env.DATABASE_URL ?? 'file:./dev.db',
-  JWT_SECRET: process.env.JWT_SECRET ?? '',
-  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ?? ''
-};
+  NODE_ENV: process.env.NODE_ENV || "development",
+  PORT: parseInt(process.env.PORT || "4000", 10),
+  DATABASE_URL: process.env.DATABASE_URL || "file:./dev.db",
+  JWT_SECRET: process.env.JWT_SECRET || "cambia-esto-por-un-secreto-aleatorio",
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || "",
 
-if (!env.JWT_SECRET) throw new Error('Falta JWT_SECRET en .env');
+  // 👇 NUEVO: configuración IA (Ollama)
+  OLLAMA_BASE_URL: process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434",
+  OLLAMA_MODEL: process.env.OLLAMA_MODEL || "llama3.1:8b",
+};

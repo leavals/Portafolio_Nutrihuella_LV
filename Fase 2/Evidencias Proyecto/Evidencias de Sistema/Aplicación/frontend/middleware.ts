@@ -1,16 +1,11 @@
 // middleware.ts
 import { NextResponse, type NextRequest } from "next/server";
 
-// Debe coincidir con tu AuthContext/login
 const AUTH_COOKIE = "auth_token";
-
-// Solo estas rutas son públicas:
 const PUBLIC_PATHS = ["/", "/login", "/register"];
 
-function isPublic(pathname: string) {
+function isPublicPage(pathname: string) {
   if (PUBLIC_PATHS.includes(pathname)) return true;
-
-  // Permitir assets/next internals y archivos estáticos
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
@@ -18,18 +13,29 @@ function isPublic(pathname: string) {
     pathname.startsWith("/images") ||
     /\.(?:ico|png|jpg|jpeg|svg|webp|gif|css|js|txt|xml|map)$/.test(pathname)
   ) return true;
-
   return false;
 }
 
 export function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
+  const isApi = pathname.startsWith("/api");
 
-  // Si es pública, dejar pasar
-  if (isPublic(pathname)) return NextResponse.next();
+  const token = req.cookies.get(AUTH_COOKIE)?.value ?? "";
 
-  // Si NO es pública, exigir cookie/token
-  const token = req.cookies.get(AUTH_COOKIE)?.value;
+  // 1) Para API: nunca redirigir; si hay cookie => SIEMPRE setear Authorization
+  if (isApi) {
+    const headers = new Headers(req.headers);
+    if (token) {
+      headers.set("authorization", `Bearer ${token}`); // fuerza que llegue
+    }
+    headers.set("x-auth-injected", "1"); // (debug opcional)
+    return NextResponse.next({ request: { headers } });
+  }
+
+  // 2) Para páginas públicas
+  if (isPublicPage(pathname)) return NextResponse.next();
+
+  // 3) Páginas protegidas
   if (!token) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
@@ -41,6 +47,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Aplica a todo menos estáticos/internals
   matcher: ["/((?!.+\\.(?:ico|png|jpg|jpeg|svg|webp|gif|css|js|txt|xml|map)$|_next/|favicon.ico).*)"],
 };

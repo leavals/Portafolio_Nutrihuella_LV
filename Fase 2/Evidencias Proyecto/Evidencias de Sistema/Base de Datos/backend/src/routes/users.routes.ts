@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import { authGuard } from '../middleware/auth.middleware.js';
-import { validate } from '../middleware/validate.middleware.js';
-import { upload } from '../middleware/upload.middleware.js';
-import { getMe, updateMe, changePassword } from '../controllers/users.controller.js';
-import { UpdateMeSchema, ChangePasswordSchema } from '../schemas/users.schema.js';
+import { authGuard } from '../middleware/auth.middleware.ts';
+import { validate } from '../middleware/validate.middleware.ts';
+import { upload } from '../middleware/upload.middleware.ts';
+import { getMe, updateMe, changePassword } from '../controllers/users.controller.ts';
+import { UpdateMeSchema, ChangePasswordSchema } from '../schemas/users.schema.ts';
 
 const r = Router();
 

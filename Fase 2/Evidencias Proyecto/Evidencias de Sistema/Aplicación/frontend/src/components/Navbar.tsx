@@ -5,25 +5,18 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import {
-  Menu,
-  Search,
-  LogOut,
-  User2,
-  PawPrint,
-  UserCircle2,
-  Heart,
-  Utensils, 
-  Home,       // ⬅️ nuevo ícono para Inicio
+  Menu, Search, LogOut, User2, PawPrint, Heart, Utensils, Home, ChefHat,
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 
 type NavItem = { href: string; label: string; Icon: React.ComponentType<any> }
 
 const authNav: NavItem[] = [
-  { href: '/', label: 'Inicio', Icon: Home },       // ⬅️ agregado al comienzo
-  { href: '/pets',      label: 'Mis mascotas', Icon: PawPrint },
-  { href: '/pantry',    label: 'Mi despensa', Icon: Utensils },
+  { href: '/', label: 'Inicio', Icon: Home },
+  { href: '/pets', label: 'Mis mascotas', Icon: PawPrint },
+  { href: '/pantry', label: 'Mi despensa', Icon: Utensils },
   { href: '/recipes/favorites', label: 'Recetas favoritas', Icon: Heart },
+  { href: '/recipes/generator', label: 'Generador de Recetas', Icon: ChefHat },
 ]
 
 export default function Navbar() {
@@ -44,7 +37,6 @@ export default function Navbar() {
 
   return (
     <header className="sticky top-0 z-30 w-full bg-white/80 backdrop-blur border-b border-white/50">
-      {/* Fila superior */}
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-4">
         <Link href="/" className="flex items-center gap-3">
           <Image
@@ -52,6 +44,7 @@ export default function Navbar() {
             alt="NutriHuella"
             width={72}
             height={72}
+            priority    // ✅ evita warning LCP
             className="rounded-full"
           />
           <span className="text-2xl font-semibold tracking-tight">NutriHuella</span>
@@ -81,7 +74,7 @@ export default function Navbar() {
                   alt={displayName || 'Usuario'}
                   width={28}
                   height={28}
-                  className="rounded-full"
+                  className="rounded-full h-auto w-auto"   // ✅ mantiene aspecto
                 />
                 <span className="text-sm">{displayName || 'Mi cuenta'}</span>
                 <Menu className="h-4 w-4" />
@@ -109,10 +102,7 @@ export default function Navbar() {
                     Mi Perfil
                   </Link>
                   <button
-                    onClick={() => {
-                      setOpen(false)
-                      logout()
-                    }}
+                    onClick={() => { setOpen(false); logout(); }}
                     className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
                   >
                     <LogOut className="h-4 w-4" />
@@ -123,17 +113,13 @@ export default function Navbar() {
             </div>
           ) : (
             <>
-              <Link href="/login" className="btn btn-outline-primary">
-                Iniciar sesión
-              </Link>
-              <Link href="/register" className="btn btn-primary">
-                Crear cuenta
-              </Link>
+              <Link href="/login" className="btn btn-outline-primary">Iniciar sesión</Link>
+              <Link href="/register" className="btn btn-primary">Crear cuenta</Link>
             </>
           )}
         </div>
 
-        {/* Botón menú (mobile) */}
+        {/* Menú (mobile) */}
         <button
           className="md:hidden ml-auto rounded-xl border bg-white/80 px-3 py-2 shadow-sm"
           onClick={() => setOpen((v) => !v)}
@@ -155,11 +141,9 @@ export default function Navbar() {
                     <Link
                       href={href}
                       aria-current={active ? 'page' : undefined}
-                      className={
-                        active
-                          ? 'text-[--nh-primary] font-medium inline-flex items-center gap-2'
-                          : 'hover:text-[--nh-primary] inline-flex items-center gap-2'
-                      }
+                      className={active
+                        ? 'text-[--nh-primary] font-medium inline-flex items-center gap-2'
+                        : 'hover:text-[--nh-primary] inline-flex items-center gap-2'}
                     >
                       <Icon className="h-4 w-4" />
                       {label}

@@ -1,24 +1,28 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { api } from "@/lib/api";
 import { Button, Field, Input, Select } from "@/components/ui";
+import {
+  normalizeIngredientName,
+  getDefaultIngredientKeywords,
+} from "@/constants/ingredient-synonyms";
 
-/* === Constantes idénticas a la page para mantener comportamiento === */
+/* === Constantes === */
 const CATS_UI = [
-  { es: "Proteínas",     enum: "PROTEIN" },
-  { es: "Verduras",      enum: "VEGGIE"  },
-  { es: "Frutas",        enum: "FRUIT"   },
-  { es: "Carbohidratos", enum: "CARB"    },
-  { es: "Grasas",        enum: "FAT"     },
-  { es: "Suplementos",   enum: "SUPPLEMENT" },
-  { es: "Otros",         enum: "OTROS"   },
+  { es: "Proteínas", enum: "PROTEIN" },
+  { es: "Verduras", enum: "VEGGIE" },
+  { es: "Frutas", enum: "FRUIT" },
+  { es: "Carbohidratos", enum: "CARB" },
+  { es: "Grasas", enum: "FAT" },
+  { es: "Suplementos", enum: "SUPPLEMENT" },
+  { es: "Otros", enum: "OTROS" },
 ] as const;
 
 const UNITS = ["g", "kg", "ml", "L", "unid"] as const;
 
-/* === Utils idénticos === */
+/* === Utils === */
 function toISODate(d: Date) {
   const z = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
   return z.toISOString().slice(0, 10);
@@ -35,7 +39,7 @@ function normISO(s?: string) {
   return s.length === 10 ? s : new Date(s).toISOString().slice(0, 10);
 }
 
-/* === Tipos locales === */
+/* === Tipos === */
 type FormState = {
   name: string;
   quantity: string;
@@ -47,14 +51,62 @@ type FormState = {
   notes: string;
 };
 
-type Props = {
-  onClose: () => void;
-  onCreated: () => void; // recargar lista en la page
+type Props = { onClose: () => void; onCreated: () => void };
+type CategoryEs = (typeof CATS_UI)[number]["es"];
+
+/* Heurística categoría (recortada por brevedad: igual a la tuya) */
+const CATEGORY_GUESS: Record<string, CategoryEs> = {
+  pollo: "Proteínas",
+  res: "Proteínas",
+  vacuno: "Proteínas",
+  ternera: "Proteínas",
+  cerdo: "Proteínas",
+  pavo: "Proteínas",
+  pato: "Proteínas",
+  cordero: "Proteínas",
+  conejo: "Proteínas",
+  venado: "Proteínas",
+  pescado: "Proteínas",
+  salmon: "Proteínas",
+  atun: "Proteínas",
+  sardina: "Proteínas",
+  bacalao: "Proteínas",
+  trucha: "Proteínas",
+  merluza: "Proteínas",
+  huevo: "Proteínas",
+  higado: "Proteínas",
+  visceras: "Proteínas",
+  rinon: "Proteínas",
+  zanahoria: "Verduras",
+  brocoli: "Verduras",
+  coliflor: "Verduras",
+  repollo: "Verduras",
+  espinaca: "Verduras",
+  acelga: "Verduras",
+  pepino: "Verduras",
+  tomate: "Verduras",
+  lechuga: "Verduras",
+  manzana: "Frutas",
+  platano: "Frutas",
+  pera: "Frutas",
+  naranja: "Frutas",
+  uva: "Frutas",
+  arroz: "Carbohidratos",
+  maiz: "Carbohidratos",
+  trigo: "Carbohidratos",
+  avena: "Carbohidratos",
+  quinoa: "Carbohidratos",
+  "aceite de oliva": "Grasas",
+  "aceite de pescado": "Grasas",
+  "omega 3": "Suplementos",
+  taurina: "Suplementos",
+  /* … */
 };
 
 export default function AddIngredientModal({ onClose, onCreated }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [synLoadKey, setSynLoadKey] = useState<string | null>(null);
 
   const today = new Date();
   const [f, setF] = useState<FormState>({
@@ -70,6 +122,14 @@ export default function AddIngredientModal({ onClose, onCreated }: Props) {
 
   const [fv, setFv] = useState<Partial<Record<keyof FormState, string>>>({});
 
+  // Habilitar/Deshabilitar Guardar
+  const canSubmit = useMemo(() => {
+    const hasName = f.name.trim().length > 0;
+    const qtyOk = f.quantity !== "" && !Number.isNaN(Number(f.quantity));
+    const unitOk = !!f.unit;
+    return hasName && qtyOk && unitOk && !submitting;
+  }, [f.name, f.quantity, f.unit, submitting]);
+
   function onChangePurchasedAt(v: string) {
     const purchase = v ? new Date(v + "T00:00:00") : new Date();
     const exp = addMonths(purchase, 3);
@@ -81,9 +141,6 @@ export default function AddIngredientModal({ onClose, onCreated }: Props) {
     if (!f.name.trim()) next.name = "Requerido";
     if (f.quantity === "" || Number.isNaN(Number(f.quantity))) next.quantity = "Requerido";
     if (!f.unit) next.unit = "Requerido";
-    if (!f.categoryEs) next.categoryEs = "Requerido";
-    if (!f.purchasedAt) next.purchasedAt = "Requerido";
-    if (!f.expiresAt) next.expiresAt = "Requerido";
     setFv(next);
     return Object.keys(next).length === 0;
   }
@@ -99,7 +156,6 @@ export default function AddIngredientModal({ onClose, onCreated }: Props) {
     setSubmitting(true);
     try {
       const cat = CATS_UI.find((c) => c.es === f.categoryEs)?.enum || undefined;
-
       const body: Record<string, any> = {
         name: f.name.trim(),
         quantity: Number(f.quantity),
@@ -112,7 +168,6 @@ export default function AddIngredientModal({ onClose, onCreated }: Props) {
       if (f.notes.trim()) body.notes = f.notes.trim();
 
       await api.post("/api/pantry", body);
-
       onClose();
       onCreated();
     } catch (e: any) {
@@ -128,7 +183,44 @@ export default function AddIngredientModal({ onClose, onCreated }: Props) {
     }
   }
 
-  /* === *** MODAL con el MISMO diseño/markup que tenías *** === */
+  /* ====== Botón "Cargar" ====== */
+  function onLoadFromDictionary() {
+    const key = normalizeIngredientName(f.name || "");
+    if (!key) return;
+
+    const defs = getDefaultIngredientKeywords(key);
+    setF((s) => ({ ...s, keywordsCsv: (defs && defs.length ? defs.join(",") : "") }));
+
+    if (!f.categoryEs) {
+      const guessEs = CATEGORY_GUESS[key];
+      if (guessEs) setF((s) => ({ ...s, categoryEs: guessEs }));
+      else if (
+        ["pollo","res","vacuno","cerdo","pavo","pato","cordero","conejo","venado","pescado","salmon","atun","huevo","higado","visceras","rinon"]
+          .some(w => key.includes(w))
+      ) setF((s) => ({ ...s, categoryEs: "Proteínas" }));
+      else if (["aceite","grasa"].some(w => key.includes(w)))
+        setF((s) => ({ ...s, categoryEs: "Grasas" }));
+      else if (
+        ["arroz","maiz","trigo","avena","quinoa","amaranto","papa","camote","boniato","yuca","tapioca","cebada","centeno","sorgo","mijo"]
+          .some(w => key.includes(w))
+      ) setF((s) => ({ ...s, categoryEs: "Carbohidratos" }));
+      else if (
+        ["manzana","platano","pera","naranja","mandarina","limon","arandano","fresa","mora","frambuesa","coco","uva"]
+          .some(w => key.includes(w))
+      ) setF((s) => ({ ...s, categoryEs: "Frutas" }));
+      else if (
+        ["zanahoria","brocoli","coliflor","repollo","espinaca","acelga","pepino","tomate","lechuga"]
+          .some(w => key.includes(w))
+      ) setF((s) => ({ ...s, categoryEs: "Verduras" }));
+      else setF((s) => ({ ...s, categoryEs: "Otros" }));
+    }
+
+    setSynLoadKey(key); // bloquear hasta que cambie el nombre
+  }
+
+  const currentKey = normalizeIngredientName(f.name || "");
+  const canLoad = currentKey.length > 0 && synLoadKey !== currentKey;
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
@@ -142,7 +234,7 @@ export default function AddIngredientModal({ onClose, onCreated }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 bg-white">
-          {/* Columna imagen */}
+          {/* Imagen */}
           <div className="relative min-h-[380px] hidden md:block">
             <Image src="/nutrihuella/recipe-thumb.png" alt="NutriHuella" fill className="object-cover" priority />
             <div className="absolute inset-0 bg-white/30 backdrop-blur-[1px]" />
@@ -153,7 +245,7 @@ export default function AddIngredientModal({ onClose, onCreated }: Props) {
             </div>
           </div>
 
-          {/* Columna formulario */}
+          {/* Formulario */}
           <div className="p-6 sm:p-8">
             <div className="flex items-start justify-between mb-2">
               <h2 className="text-2xl font-semibold text-ink">Agregar ingrediente</h2>
@@ -172,6 +264,7 @@ export default function AddIngredientModal({ onClose, onCreated }: Props) {
               Completa los campos requeridos. La caducidad se calcula +3 meses desde la compra.
             </p>
 
+            {/* Grilla principal */}
             <form onSubmit={add} className="grid md:grid-cols-2 gap-3" noValidate>
               <Field label="Nombre*">
                 <Input
@@ -207,25 +300,33 @@ export default function AddIngredientModal({ onClose, onCreated }: Props) {
                   required
                 >
                   <option value="">Selecciona…</option>
-                  {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                  {UNITS.map((u) => (
+                    <option key={u} value={u}>
+                      {u}
+                    </option>
+                  ))}
                 </Select>
                 <FieldError id="err-unit" msg={fv.unit} />
               </Field>
 
-              <Field label="Categoría*">
+              <Field label="Categoría">
                 <Select
                   aria-invalid={!!fv.categoryEs}
                   aria-describedby="err-category"
                   value={f.categoryEs}
                   onChange={(e) => setF({ ...f, categoryEs: e.target.value })}
-                  required
                 >
-                  <option value="">Selecciona…</option>
-                  {CATS_UI.map((c) => <option key={c.enum} value={c.es}>{c.es}</option>)}
+                  <option value="">(opcional)</option>
+                  {CATS_UI.map((c) => (
+                    <option key={c.enum} value={c.es}>
+                      {c.es}
+                    </option>
+                  ))}
                 </Select>
                 <FieldError id="err-category" msg={fv.categoryEs} />
               </Field>
 
+              {/* FILA: Sinónimos (izq) + Cargar (der) */}
               <Field label="Sinónimos (CSV)">
                 <Input
                   value={f.keywordsCsv}
@@ -234,30 +335,40 @@ export default function AddIngredientModal({ onClose, onCreated }: Props) {
                 />
               </Field>
 
-              <div className="hidden md:block" />
+              <div className="flex flex-col gap-2">
+                {/* offset para alinear con label de la izquierda */}
+                <div className="h-6 md:h-[26px]" aria-hidden />
+                <Button
+                  type="button"
+                  onClick={onLoadFromDictionary}
+                  disabled={!canLoad}
+                  className="w-full disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cargar
+                </Button>
+              </div>
 
-              <Field label="Compra*">
-                <Input
-                  type="date"
-                  aria-invalid={!!fv.purchasedAt}
-                  aria-describedby="err-purchased"
-                  value={f.purchasedAt}
-                  onChange={(e) => onChangePurchasedAt(e.target.value)}
-                  required
-                />
-                <FieldError id="err-purchased" msg={fv.purchasedAt} />
-              </Field>
-
-              <Field label="Caducidad*">
+              {/* FILA: Caducidad (izq) + Compra (der) => alineadas */}
+              <Field label="Caducidad">
                 <Input
                   type="date"
                   aria-invalid={!!fv.expiresAt}
                   aria-describedby="err-expires"
                   value={f.expiresAt}
                   onChange={(e) => setF({ ...f, expiresAt: e.target.value })}
-                  required
                 />
                 <FieldError id="err-expires" msg={fv.expiresAt} />
+              </Field>
+
+              <Field label="Compra">
+                <Input
+                  type="date"
+                  aria-invalid={!!fv.purchasedAt}
+                  aria-describedby="err-purchased"
+                  value={f.purchasedAt}
+                  onChange={(e) => onChangePurchasedAt(e.target.value)}
+                />
+                <FieldError id="err-purchased" msg={fv.purchasedAt} />
               </Field>
 
               <div className="md:col-span-2">
@@ -274,7 +385,11 @@ export default function AddIngredientModal({ onClose, onCreated }: Props) {
                 <Button type="button" variant="ghost" onClick={onClose}>
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={submitting}>
+                <Button
+                  type="submit"
+                  disabled={!canSubmit}
+                  className="disabled:opacity-50 disabled:cursor-not-allowed"
+                >
                   {submitting ? "Guardando…" : "Guardar"}
                 </Button>
               </div>

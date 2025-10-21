@@ -1,3 +1,4 @@
+// src/components/Navbar.tsx
 'use client'
 
 import Link from 'next/link'
@@ -5,9 +6,10 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import {
-  Menu, Search, LogOut, User2, PawPrint, Heart, Utensils, Home, ChefHat,
+  Menu, Search, LogOut, User2, PawPrint, Heart, Utensils, Home, ChefHat, Crown,
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
+import usePlusUpgrade from '@/hooks/usePlusUpgrade'
 
 type NavItem = { href: string; label: string; Icon: React.ComponentType<any> }
 
@@ -22,6 +24,7 @@ const authNav: NavItem[] = [
 export default function Navbar() {
   const pathname = usePathname()
   const { user, loading, displayName, logout, isAuthenticated } = useAuth()
+  const { startUpgrade } = usePlusUpgrade()
 
   const [open, setOpen] = useState(false)
   const popRef = useRef<HTMLDivElement | null>(null)
@@ -44,7 +47,7 @@ export default function Navbar() {
             alt="NutriHuella"
             width={72}
             height={72}
-            priority    // ✅ evita warning LCP
+            priority
             className="rounded-full"
           />
           <span className="text-2xl font-semibold tracking-tight">NutriHuella</span>
@@ -58,6 +61,18 @@ export default function Navbar() {
             className="w-full bg-transparent outline-none text-sm placeholder:text-slate-400"
           />
         </div>
+
+        {/* CTA Upgrade (desktop, visible al estar autenticado) */}
+        {isAuthenticated && (
+          <button
+            className="hidden md:inline-flex items-center gap-2 rounded-xl border bg-white/90 hover:bg-white px-3 py-2 shadow-sm ml-2"
+            onClick={() => startUpgrade()}
+            title="Actualizar a Plus"
+          >
+            <Crown className="h-4 w-4 text-amber-500" />
+            <span className="text-sm">Actualizar a Plus</span>
+          </button>
+        )}
 
         {/* Auth (desktop) */}
         <div className="ml-2 hidden md:flex items-center gap-2">
@@ -74,7 +89,7 @@ export default function Navbar() {
                   alt={displayName || 'Usuario'}
                   width={28}
                   height={28}
-                  className="rounded-full h-auto w-auto"   // ✅ mantiene aspecto
+                  className="rounded-full h-auto w-auto"
                 />
                 <span className="text-sm">{displayName || 'Mi cuenta'}</span>
                 <Menu className="h-4 w-4" />

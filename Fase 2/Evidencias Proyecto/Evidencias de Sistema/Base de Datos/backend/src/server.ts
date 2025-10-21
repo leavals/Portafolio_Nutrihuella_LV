@@ -1,4 +1,4 @@
-// backend/src/server.ts
+// src/server.ts
 import app from "./app.ts";
 import { env } from "./env.ts";
 import { prisma } from "./services/prisma.ts";

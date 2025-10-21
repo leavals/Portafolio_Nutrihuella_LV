@@ -1,5 +1,6 @@
+// prisma/schema.prisma
 // ============================================== 
-// NutriHuella – Prisma schema (SQLite - desbloqueo)
+// NutriHuella – Prisma schema (SQLite)
 // ==============================================
 
 generator client {
@@ -12,20 +13,28 @@ datasource db {
 }
 
 model User {
-  id           String               @id @default(cuid())
-  email        String               @unique
+  id           String  @id @default(cuid())
+  email        String  @unique
   passwordHash String?
   name         String?
-  googleId     String?              @unique
+  googleId     String? @unique
   picture      String?
-  pets         Pet[]
-  pantry       PantryItem[] // 👈 despensa general del usuario
-  resetTokens  PasswordResetToken[]
 
-  // 👇 Back-relations para recetas
+  pets        Pet[]
+  pantry      PantryItem[]
+  resetTokens PasswordResetToken[]
+
   recipes   Recipe[]
-  favorites FavoriteRecipe[]
   feedbacks RecipeFeedback[]
+
+  // Plan y membresía
+  plan                String    @default("BASIC") // "BASIC" | "PLUS"
+  membershipUpdatedAt DateTime?
+
+  // Favoritos y pagos / stats
+  favoriteRecipes FavoriteRecipe[]
+  payments        Payment[]
+  dailyStats      DailyStat[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -50,8 +59,9 @@ model Pet {
   weights    WeightHistory[]
   photoUrl   String?
 
-  // 👇 Back-relation para recetas
-  recipes Recipe[]
+  // Back-relations
+  recipes         Recipe[]
+  favoriteRecipes FavoriteRecipe[] // ✅ inversa de FavoriteRecipe.pet
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -138,10 +148,10 @@ model NutritionProfile {
   mealsPerDay    Int     @default(2)
   activityLevel  String  @default("MODERATE")
   goal           String  @default("MAINTENANCE")
-  foodAllergies  String? // CSV
-  intolerances   String? // CSV
-  forbiddenFoods String? // CSV
-  preferredFoods String? // CSV
+  foodAllergies  String?
+  intolerances   String?
+  forbiddenFoods String?
+  preferredFoods String?
   supplements    String?
   dailyCalories  Int?
   waterIntakeMl  Int?
@@ -157,37 +167,22 @@ model PasswordResetToken {
   usedAt    DateTime?
 }
 
-// ⚠️ Eliminado el enum RecipePlanType (SQLite no lo soporta)
-// ⚠️ JSON -> String en Recipe.content
-
+// El contenido de recetas lo guardamos serializado como String (TEXT)
 model Recipe {
   id        String   @id @default(cuid())
   userId    String
   petId     String?
   title     String
-  planType  String // e.g. "BREAKFAST" | "LUNCH" | ...
-  content   String // JSON serializado (el backend hace JSON.parse)
+  planType  String // BREAKFAST|LUNCH|DINNER|DAILY|WEEKLY
+  content   String // JSON serializado
   createdAt DateTime @default(now())
 
-  user      User             @relation(fields: [userId], references: [id])
-  pet       Pet?             @relation(fields: [petId], references: [id])
-  favorites FavoriteRecipe[]
-  feedback  RecipeFeedback[]
+  user     User             @relation(fields: [userId], references: [id])
+  pet      Pet?             @relation(fields: [petId], references: [id])
+  feedback RecipeFeedback[] // ✅ inversa de RecipeFeedback.recipe
 
   @@index([userId])
   @@index([petId])
-}
-
-model FavoriteRecipe {
-  id        String   @id @default(cuid())
-  userId    String
-  recipeId  String
-  createdAt DateTime @default(now())
-
-  user   User   @relation(fields: [userId], references: [id])
-  recipe Recipe @relation(fields: [recipeId], references: [id])
-
-  @@unique([userId, recipeId])
 }
 
 model RecipeFeedback {
@@ -200,4 +195,52 @@ model RecipeFeedback {
 
   user   User   @relation(fields: [userId], references: [id])
   recipe Recipe @relation(fields: [recipeId], references: [id])
+}
+
+/// Conteo diario de generaciones de recetas (por usuario y día)
+model DailyStat {
+  id                    String   @id @default(cuid())
+  userId                String
+  /// Clave YYYY-MM-DD en zona America/Santiago
+  dateKey               String
+  recipesGeneratedCount Int      @default(0)
+  createdAt             DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dateKey])
+}
+
+/// Recetas guardadas (contenido JSON serializado en String - TEXT)
+model FavoriteRecipe {
+  id          String   @id @default(cuid())
+  userId      String
+  petId       String?
+  title       String?
+  planType    String?
+  contentJson String
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pet  Pet? @relation(fields: [petId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+}
+
+/// Pagos Webpay Plus
+model Payment {
+  id        String   @id @default(cuid())
+  userId    String
+  buyOrder  String
+  sessionId String
+  amount    Int
+  tbkToken  String?  @unique
+  status    String   @default("INIT") // INIT | AUTHORIZED | FAILED | ABORTED
+  raw       String? // JSON serializado
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
 }

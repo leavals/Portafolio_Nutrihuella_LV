@@ -8,6 +8,8 @@ import usersRoutes from "./routes/users.routes.ts";
 import petsRoutes from "./routes/pets.routes.ts";
 import pantryRoutes from "./routes/pantry.routes.ts";
 import recipesRoutes from "./routes/recipes.routes.ts";
+import paymentsRoutes from "./routes/payments.routes.ts"; 
+import limitsRoutes from "./routes/limits.routes.ts";     
 
 const app = express();
 
@@ -28,5 +30,7 @@ app.use("/api/users", usersRoutes);
 app.use("/api/pets", petsRoutes);
 app.use("/api/pantry", pantryRoutes);
 app.use("/api/recipes", recipesRoutes);
+app.use("/api/payments", paymentsRoutes); 
+app.use("/api/limits", limitsRoutes);    
 
 export default app;

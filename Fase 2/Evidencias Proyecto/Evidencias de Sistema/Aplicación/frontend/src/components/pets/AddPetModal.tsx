@@ -1,8 +1,11 @@
+// src/components/pets/AddPetModal.tsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";
 import api from "@/lib/api";
 import { DOG_BREEDS, SIZES, SIZE_LABELS } from "@/constants/pets";
+import PlusUpgradeModal from "@/components/PlusUpgradeModal";
+import usePlusUpgrade from "@/hooks/usePlusUpgrade";
 
 type Props = {
   onClose: () => void;
@@ -21,6 +24,11 @@ export default function AddPetModal({ onClose, onCreated }: Props) {
     birthDate: "",
   });
   const [submitting, setSubmitting] = useState(false);
+
+  // upgrade UI
+  const [showUpgrade, setShowUpgrade] = useState(false);
+  const [quota, setQuota] = useState<{ used: number; limit: number } | null>(null);
+  const { startUpgrade } = usePlusUpgrade();
 
   // cerrar con ESC
   useEffect(() => {
@@ -61,6 +69,13 @@ export default function AddPetModal({ onClose, onCreated }: Props) {
       await api.post("/api/pets", payload);
       onCreated();
     } catch (err: any) {
+      const status = Number(err?.status || 0);
+      const code = err?.responseJson?.code || err?.code;
+      if (status === 409 && code === "LIMIT_PETS_REACHED") {
+        setQuota(err?.responseJson?.quota ?? null);
+        setShowUpgrade(true);
+        return;
+      }
       alert(err?.message || "No se pudo crear la mascota");
     } finally {
       setSubmitting(false);
@@ -293,6 +308,15 @@ export default function AddPetModal({ onClose, onCreated }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Modal Upgrade al alcanzar límite de mascotas */}
+      <PlusUpgradeModal
+        open={showUpgrade}
+        kind="pets"
+        quota={quota ?? undefined}
+        onClose={() => setShowUpgrade(false)}
+        onUpgrade={() => startUpgrade()}
+      />
     </div>
   );
 }

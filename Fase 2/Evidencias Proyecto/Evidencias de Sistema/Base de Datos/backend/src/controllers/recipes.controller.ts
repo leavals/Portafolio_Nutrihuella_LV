@@ -5,32 +5,84 @@ import { chatJSON } from "../services/ollama.ts";
 
 type PlanType = "BREAKFAST" | "LUNCH" | "DINNER" | "DAILY" | "WEEKLY";
 
+const LIMITS = {
+  BASIC: { pets: 2, favorites: 2, generationsPerDay: 2 },
+  PLUS:  { pets: 999999, favorites: 999999, generationsPerDay: 999999 },
+} as const;
+
+function getPlan(userPlan?: string) {
+  return (userPlan === "PLUS" ? "PLUS" : "BASIC") as keyof typeof LIMITS;
+}
+
+function santiagoDateKey(d = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Santiago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(d);
+
+  const y = parts.find(p => p.type === "year")!.value;
+  const m = parts.find(p => p.type === "month")!.value;
+  const day = parts.find(p => p.type === "day")!.value;
+  return `${y}-${m}-${day}`;
+}
+
+function santiagoResetAtISO(d = new Date()) {
+  // Próxima medianoche en America/Santiago → ISO UTC
+  const dateKey = santiagoDateKey(d);
+  const [Y, M, D] = dateKey.split("-").map(Number);
+  const next = new Date(Date.UTC(Y, M - 1, D + 1, 3, 0, 0)); // aprox: compensación huso; nos basta ISO
+  return next.toISOString();
+}
+
+function limitErr(res: Response, http: number, code: string, used: number, limit: number, withReset = false) {
+  const payload: any = {
+    message: "Límite alcanzado.",
+    code,
+    quota: { used, limit, ...(withReset ? { resetAt: santiagoResetAtISO() } : {}) },
+  };
+  return res.status(http).json(payload);
+}
+
 function parseCsvOrJson(txt?: string | null): string[] {
   if (!txt) return [];
-  // Intentar JSON (por si está guardado como '["pollo","gluten"]')
   try {
     const v = JSON.parse(txt);
-    if (Array.isArray(v)) return v.map((x) => String(x));
+    if (Array.isArray(v)) return v.map(String);
   } catch {}
-  // Fallback CSV
-  return String(txt)
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+  return String(txt).split(",").map((s) => s.trim()).filter(Boolean);
 }
 
 function yearsFrom(birth?: Date | null): number | null {
   if (!birth) return null;
   const ms = Date.now() - birth.getTime();
   if (ms <= 0) return 0;
-  // 365.25 días
-  return Math.round((ms / 31557600000) * 10) / 10;
+  return Math.round((ms / 31557600000) * 10) / 10; // 365.25 días
 }
 
 export async function generateRecipe(req: Request, res: Response) {
   try {
     const userId = (req as any).userId as string | undefined;
+    if (!userId) return res.status(401).json({ message: "No autorizado" });
 
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+
+    const plan = getPlan(user.plan);
+    const genLimit = LIMITS[plan].generationsPerDay;
+
+    // === Límite diario ===
+    const dateKey = santiagoDateKey();
+    let stat = await prisma.dailyStat.findUnique({
+      where: { userId_dateKey: { userId, dateKey } },
+    });
+    const used = stat?.recipesGeneratedCount ?? 0;
+    if (used >= genLimit) {
+      return limitErr(res, 429, "LIMIT_GENERATIONS_REACHED", used, genLimit, true);
+    }
+
+    // === Entrada ===
     const {
       planType = "DAILY",
       goals = "",
@@ -51,17 +103,13 @@ export async function generateRecipe(req: Request, res: Response) {
       pantry?: Array<{ name: string; quantity?: number; unit?: string }>;
     };
 
-    // Aceptar aliases de petId
     const effectivePetId = String(petIdBody || pet_id || petProfileIn?.id || "");
 
-    // 1) Construir petProfile si no vino embebido
+    // Armar petProfile si no viene embebido
     let petProfile = petProfileIn as any;
     if (!petProfile && effectivePetId) {
       const pet = await prisma.pet.findFirst({
-        where: {
-          id: effectivePetId,
-          ...(userId ? { ownerId: userId } : {}), // si hay user, debe ser su mascota
-        },
+        where: { id: effectivePetId, ownerId: userId },
         include: {
           nutrition: true,
           diseases: true,
@@ -69,9 +117,7 @@ export async function generateRecipe(req: Request, res: Response) {
           weights: { orderBy: { date: "desc" }, take: 6 },
         },
       });
-      if (!pet) {
-        return res.status(404).json({ message: "Mascota no encontrada" });
-      }
+      if (!pet) return res.status(404).json({ message: "Mascota no encontrada" });
 
       petProfile = {
         id: pet.id,
@@ -84,7 +130,6 @@ export async function generateRecipe(req: Request, res: Response) {
         sterilized: !!pet.sterilized,
         size: pet.size ?? "",
         activityLevel: pet.nutrition?.activityLevel ?? "",
-        // Alergias/intolerancias/forbidden de la ficha nutricional (guardadas como CSV/JSON-string)
         allergies: parseCsvOrJson(pet.nutrition?.foodAllergies),
         diseases: (pet.diseases ?? []).map((d) => d.name),
         vaccines: (pet.vaccines ?? []).map((v) => v.name),
@@ -92,15 +137,12 @@ export async function generateRecipe(req: Request, res: Response) {
         nutritionNotes: pet.nutrition?.notes ?? "",
       };
     }
-
     if (!petProfile?.id) {
-      // Mantener mensaje esperado por el frontend
       return res.status(400).json({ message: "Debe seleccionar una mascota." });
     }
 
-    // 2) Armar "pantry"
+    // Pantry
     let pantry: Array<{ name: string; quantity?: number; unit?: string }> = [];
-    // Si vino en el body, lo usamos
     if (Array.isArray(pantryIn) && pantryIn.length) {
       pantry = pantryIn.map((i) => ({
         name: i.name ?? "",
@@ -108,11 +150,10 @@ export async function generateRecipe(req: Request, res: Response) {
         unit: i.unit ?? undefined,
       }));
     } else {
-      // Si no vino pantry, y el usuario está logueado y pide usar despensa, la cargamos de DB
-      const shouldUsePantry = (use_pantry ?? usePantry ?? true) && !!userId;
+      const shouldUsePantry = (use_pantry ?? usePantry ?? true);
       if (shouldUsePantry) {
         const items = await prisma.pantryItem.findMany({
-          where: { ownerId: userId! },
+          where: { ownerId: userId },
           orderBy: [{ expiresAt: "asc" }, { name: "asc" }],
         });
         pantry = items.map((it) => ({
@@ -123,14 +164,14 @@ export async function generateRecipe(req: Request, res: Response) {
       }
     }
 
-    // 3) Prompt a la IA (Ollama) – pedir JSON estricto
+    // === Prompt a Ollama (JSON estricto) ===
     const sys = [
       "Eres NutriHuella, asistente de nutrición para mascotas.",
       "Devuelve SOLO JSON válido, sin comentarios, sin texto adicional.",
       "Si falta información, asume valores razonables y menciónalo en 'notes'.",
     ].join(" ");
 
-    const user = `
+    const userMsg = `
 Genera un plan "${planType}" para la mascota y su contexto. Considera objetivos/restricciones y la despensa disponible.
 
 Estructura JSON estricta:
@@ -156,15 +197,25 @@ Despensa: ${JSON.stringify(pantry)}
 Objetivos: ${goals}
     `.trim();
 
-    const raw = await chatJSON(sys, user);
+    const raw = await chatJSON(sys, userMsg);
 
     let recipe: any;
     try {
       recipe = JSON.parse(raw);
     } catch {
-      // Si el modelo no respetó JSON estricto, devolvemos algo utilizable
       recipe = { title: "Receta generada", planType, notes: "Respuesta no-JSON", raw };
     }
+
+    // === Incrementar conteo diario ===
+    await prisma.$transaction(async (tx) => {
+      const current = await tx.dailyStat.upsert({
+        where: { userId_dateKey: { userId, dateKey } },
+        update: { recipesGeneratedCount: { increment: 1 } },
+        create: { userId, dateKey, recipesGeneratedCount: 1 },
+      });
+      // Return shape no se usa aquí; solo aseguramos el incremento.
+      current;
+    });
 
     return res.json({ recipe, recipeId: null });
   } catch (err: any) {
@@ -173,10 +224,49 @@ Objetivos: ${goals}
   }
 }
 
-export async function addFavorite(_req: Request, res: Response) {
-  return res.json({ ok: true });
-}
+export async function addFavorite(req: Request, res: Response) {
+  try {
+    const userId = (req as any).userId as string | undefined;
+    if (!userId) return res.status(401).json({ message: "No autorizado" });
 
-export async function sendFeedback(_req: Request, res: Response) {
-  return res.json({ ok: true });
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+
+    const plan = getPlan(user.plan);
+    const favLimit = LIMITS[plan].favorites;
+
+    const used = await prisma.favoriteRecipe.count({ where: { userId } });
+    if (used >= favLimit) {
+      return limitErr(res, 409, "LIMIT_FAVORITES_REACHED", used, favLimit, false);
+    }
+
+    const { recipeId, recipe, title, planType, petId } = (req.body ?? {}) as {
+      recipeId?: string;
+      recipe?: any;
+      title?: string;
+      planType?: PlanType;
+      petId?: string;
+    };
+
+    // Para este modelo, guardamos el JSON completo que venga en `recipe`
+    const payload = recipe ?? null;
+    if (!payload) {
+      return res.status(400).json({ message: "Falta el contenido de la receta a guardar." });
+    }
+
+    const created = await prisma.favoriteRecipe.create({
+      data: {
+        userId,
+        petId: petId || null,
+        title: title ?? payload?.title ?? null,
+        planType: planType ?? payload?.planType ?? null,
+        contentJson: JSON.stringify(payload),
+      },
+    });
+
+    return res.status(201).json({ id: created.id });
+  } catch (err: any) {
+    console.error("addFavorite error:", err?.message || err);
+    return res.status(500).json({ message: "No fue posible guardar en favoritos." });
+  }
 }

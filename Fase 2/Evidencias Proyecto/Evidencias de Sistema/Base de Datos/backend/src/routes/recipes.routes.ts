@@ -1,15 +1,14 @@
 // src/routes/recipes.routes.ts
 import { Router } from "express";
-import { generateRecipe, addFavorite, sendFeedback } from "../controllers/recipes.controller.ts";
 import { authGuard } from "../middleware/auth.middleware.ts";
+import { generateRecipe, addFavorite } from "../controllers/recipes.controller.ts";
 
-const router = Router();
+const r = Router();
+r.use(authGuard);
 
-// Necesitamos saber el userId para cargar la despensa del usuario y validar petId
-router.use(authGuard);
+r.post("/generate", generateRecipe);
+r.post("/favorites", addFavorite);
 
-router.post("/generate", generateRecipe);
-router.post("/favorites", addFavorite);
-router.post("/:id/feedback", sendFeedback);
+// (feedback u otros endpoints pueden añadirse aquí)
 
-export default router;
+export default r;

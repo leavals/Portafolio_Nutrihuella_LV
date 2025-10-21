@@ -1,33 +1,36 @@
 // src/services/ollama.ts
-const BASE = process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434";
-const MODEL = process.env.OLLAMA_MODEL || "llama3.1:8b";
+import { env } from "../env.ts";
 
-/**
- * Llama al endpoint /api/chat de Ollama y pide respuesta JSON (format: "json")
- */
+type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
+
 export async function chatJSON(system: string, user: string): Promise<string> {
-  const res = await fetch(`${BASE}/api/chat`, {
+  const url = `${env.OLLAMA_BASE_URL.replace(/\/+$/, "")}/api/chat`;
+
+  const body = {
+    model: env.OLLAMA_MODEL,
+    stream: false,
+    messages: [
+      { role: "system", content: system },
+      { role: "user", content: user },
+    ] as ChatMessage[],
+    options: {
+      temperature: 0.4,
+      top_p: 0.9,
+    },
+  };
+
+  const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user }
-      ],
-      stream: false,
-      format: "json",
-      options: { temperature: 0.2 }
-    })
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`OLLAMA ${res.status} - ${text}`);
+    const t = await res.text().catch(() => "");
+    throw new Error(`Ollama error ${res.status}: ${t || res.statusText}`);
   }
 
-  const data = await res.json().catch(() => ({} as any));
-  const content = data?.message?.content ?? "";
-  if (!content) throw new Error("OLLAMA respuesta vacía.");
-  return content as string;
+  const data: any = await res.json();
+  // /api/chat → data.message.content; /api/generate → data.response
+  return String(data?.message?.content ?? data?.response ?? "");
 }

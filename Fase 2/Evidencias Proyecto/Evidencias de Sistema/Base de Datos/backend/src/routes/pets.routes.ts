@@ -33,6 +33,31 @@ import { UpsertNutritionSchema } from "../schemas/nutrition.schema.ts";
 const r = Router();
 r.use(authGuard);
 
+// ---- LÍMITE BASIC: 2 mascotas ----
+const BASIC_PET_LIMIT = 2;
+async function enforcePetLimit(req: any, res: any, next: any) {
+  try {
+    const userId = req.userId as string | undefined;
+    if (!userId) return res.status(401).json({ message: "No autorizado" });
+
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { plan: true } });
+    if (user?.plan !== "BASIC") return next();
+
+    const count = await prisma.pet.count({ where: { ownerId: userId } });
+    if (count >= BASIC_PET_LIMIT) {
+      return res.status(409).json({
+        message: "Alcanzaste tu límite de mascotas en el plan Básico.",
+        code: "LIMIT_PETS_REACHED",
+        quota: { used: count, limit: BASIC_PET_LIMIT },
+      });
+    }
+    return next();
+  } catch (e) {
+    console.error("enforcePetLimit error", e);
+    return res.status(500).json({ message: "Error validando límite de mascotas" });
+  }
+}
+
 // ---- Multer (fotos) ----
 const uploadsDir = path.resolve("uploads");
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
@@ -40,14 +65,14 @@ const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadsDir),
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname || "");
-    cb(null, `${req.params.petId}-${Date.now()}${ext}`);
+    cb(null, `${req.params.petId ?? "pet"}-${Date.now()}${ext}`);
   },
 });
 const upload = multer({ storage });
 
 // ---- Mascotas ----
 r.get("/", listPets);
-r.post("/", validate(CreatePetSchema), createPet);
+r.post("/", enforcePetLimit, validate(CreatePetSchema), createPet);
 r.get("/:petId", getPet);
 r.patch("/:petId", validate(UpdatePetSchema), updatePet);
 r.put("/:petId", validate(UpdatePetSchema), updatePet);
@@ -82,10 +107,8 @@ r.put("/:petId/nutrition", validate(UpsertNutritionSchema), upsertNutrition);
 // ---- Foto ----
 r.post("/:petId/photo", upload.single("file"), uploadPetPhoto);
 
-// ---- Wizard (solo nutrition + diseases) ----
+// ---- Wizard ----
 r.get("/:petId/wizard/completion", getWizardCompletion);
-
-// ---- Enfermedades: ACK "sin enfermedades" ----
 r.post("/:petId/diseases/no-diseases-ack", ackNoDiseasesForPet);
 
 export default r;

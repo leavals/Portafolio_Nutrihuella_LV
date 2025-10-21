@@ -1,8 +1,12 @@
+// src/components/recipes/RecipeGeneratorForm.tsx
 'use client';
 import React from 'react';
 import { generateRecipe, addFavorite, sendFeedback, PlanType } from '@/services/recipes';
 import api from '@/lib/api';
 import RecipeCard from './RecipeCard';
+import PlusQuotaBanner from '@/components/PlusQuotaBanner';
+import PlusUpgradeModal from '@/components/PlusUpgradeModal';
+import usePlusUpgrade from '@/hooks/usePlusUpgrade';
 
 type PetApi = any;
 type Pet = { id: string; name: string; species?: string; breed?: string };
@@ -19,6 +23,8 @@ function normalizePets(apiPets: PetApi[]): Pet[] {
   }).filter(p => !!p.id);
 }
 
+type Quota = { used: number; limit: number; resetAt?: string | null } | null;
+
 export default function RecipeGeneratorForm() {
   const [pets, setPets] = React.useState<Pet[]>([]);
   const [petId, setPetId] = React.useState<string>('');
@@ -29,6 +35,11 @@ export default function RecipeGeneratorForm() {
   const [result, setResult] = React.useState<any>(null);
   const [recipeId, setRecipeId] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+
+  // UI: upgrade
+  const [showUpgrade, setShowUpgrade] = React.useState(false);
+  const [quota, setQuota] = React.useState<Quota>(null);
+  const { startUpgrade } = usePlusUpgrade();
 
   // Cargar mascotas del usuario desde el backend (:4000)
   React.useEffect(() => {
@@ -67,8 +78,19 @@ export default function RecipeGeneratorForm() {
       setRecipeId(recipeId ?? null);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err: any) {
-      console.error('[RecipeGenerator] generate failed', err);
-      setError(err?.message ?? 'No fue posible generar la receta.');
+      // Manejo uniforme de errores de api.ts
+      const code = err?.responseJson?.code || err?.code;
+      const status = Number(err?.status || 0);
+
+      if (status === 429 && code === 'LIMIT_GENERATIONS_REACHED') {
+        // Mostrar banner + modal de upgrade
+        setQuota(err?.responseJson?.quota ?? null);
+        setShowUpgrade(true);
+        setError(null);
+      } else {
+        console.error('[RecipeGenerator] generate failed', err);
+        setError(err?.message ?? 'No fue posible generar la receta.');
+      }
     } finally {
       setLoading(false);
     }
@@ -79,6 +101,7 @@ export default function RecipeGeneratorForm() {
       await addFavorite({ recipeId: recipeId ?? undefined, recipe: recipeId ? undefined : result });
       alert('Guardado en favoritos');
     } catch (e: any) {
+      // Si alguna vez limitamos favoritos aquí, el modal se puede reutilizar
       alert(e?.response?.data?.message ?? 'No se pudo guardar en favoritos');
     }
   }
@@ -95,6 +118,16 @@ export default function RecipeGeneratorForm() {
 
   return (
     <div className="w-full flex flex-col items-center gap-6">
+      {/* Banner compacto cuando se alcanzó el límite */}
+      {showUpgrade && (
+        <PlusQuotaBanner
+          kind="generations"
+          quota={quota ?? undefined}
+          onUpgrade={() => startUpgrade()}
+          onClose={() => setShowUpgrade(false)}
+        />
+      )}
+
       {result && (
         <RecipeCard data={result} onFavorite={onFavorite} onFeedback={onFeedback} />
       )}
@@ -155,6 +188,15 @@ export default function RecipeGeneratorForm() {
 
         {error && <p className="text-sm text-rose-700 mt-3">Error: {error}</p>}
       </form>
+
+      {/* Modal elegante (reutilizable) */}
+      <PlusUpgradeModal
+        open={showUpgrade}
+        quota={quota ?? undefined}
+        kind="generations"
+        onClose={() => setShowUpgrade(false)}
+        onUpgrade={() => startUpgrade()}
+      />
     </div>
   );
 }

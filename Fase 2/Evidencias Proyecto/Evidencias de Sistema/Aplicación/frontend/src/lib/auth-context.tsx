@@ -7,6 +7,8 @@
  */
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import api from "@/lib/api";
+import { homedir } from "node:os";
+import { useRouter } from "next/navigation";
 
 // Debe coincidir con middleware.ts
 const AUTH_COOKIE = "auth_token";
@@ -89,6 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     (async () => {
@@ -172,6 +175,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsAdmin(false);
     setToken(null);
     saveToken(null);
+    router.push('/');
   }
 
   const value = useMemo<AuthCtx>(() => ({

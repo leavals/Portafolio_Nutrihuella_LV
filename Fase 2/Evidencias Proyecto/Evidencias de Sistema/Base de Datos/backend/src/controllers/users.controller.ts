@@ -3,13 +3,14 @@ import path from 'node:path';
 import bcrypt from 'bcrypt';
 import { prisma } from '../services/prisma.ts';
 
-// Estructura de usuario pÃºblica estÃ¡ndar
+// Proyección pública estándar
 function publicUser(u: any) {
   return {
     id: u.id,
     email: u.email,
     name: u.name ?? undefined,
     picture: u.picture ?? undefined,
+    plan: (u.plan as 'BASIC' | 'PLUS') ?? 'BASIC', // <<< agregado
   };
 }
 
@@ -31,7 +32,6 @@ export async function updateMe(req: Request, res: Response) {
   const body = (req.body ?? {}) as { name?: string; picture?: string };
   let pictureUrl: string | undefined = body.picture;
 
-  // Si vino archivo via upload.single('picture'), priorizamos el archivo
   const file = (req as any).file as Express.Multer.File | undefined;
   if (file) {
     pictureUrl = `/uploads/${path.basename(file.filename)}`;
@@ -60,14 +60,15 @@ export async function changePassword(req: Request, res: Response) {
   const user = await prisma.user.findUnique({ where: { id } });
   if (!user) return res.sendStatus(404);
 
-  // Confirmado: DB usa passwordHash (no 'password')
   if (user.passwordHash) {
     const ok = await bcrypt.compare(currentPassword, user.passwordHash);
-    if (!ok) return res.status(400).json({ message: 'ContraseÃ±a actual incorrecta' });
+    if (!ok) return res.status(400).json({ message: 'Contraseña actual incorrecta' });
   } else {
-    // Cuenta sin password previa (p.ej. Google). Permitimos inicializar con currentPassword vacÃ­o.
     if (currentPassword && currentPassword.length > 0) {
-      return res.status(400).json({ message: 'La cuenta no tiene contraseÃ±a previa; deje currentPassword vacÃ­o para establecer una nueva.' });
+      return res.status(400).json({
+        message:
+          'La cuenta no tiene contraseña previa; deje currentPassword vacío para establecer una nueva.',
+      });
     }
   }
 
@@ -77,5 +78,19 @@ export async function changePassword(req: Request, res: Response) {
   return res.json({ ok: true });
 }
 
-export default { getMe, updateMe, changePassword };
+/** POST /api/users/plus/cancel
+ *  Degrada al usuario a plan BASIC y registra membershipUpdatedAt.
+ */
+export async function cancelPlus(req: Request, res: Response) {
+  const id = (req as any).userId as string | undefined;
+  if (!id) return res.status(401).json({ message: 'No autenticado' });
 
+  const updated = await prisma.user.update({
+    where: { id },
+    data: { plan: 'BASIC', membershipUpdatedAt: new Date() },
+  });
+
+  return res.json({ ok: true, plan: updated.plan });
+}
+
+export default { getMe, updateMe, changePassword, cancelPlus };

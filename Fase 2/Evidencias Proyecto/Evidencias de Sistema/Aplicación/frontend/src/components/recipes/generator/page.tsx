@@ -1,14 +1,22 @@
 'use client';
 
+/**
+ * Generador de recetas (página del flujo clásico).
+ * - Se eliminan los alert() al guardar favoritos. El feedback lo muestra RecipeView.
+ * - onAddFavorite ahora devuelve Promise<boolean> y propaga errores si falla.
+ */
+
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
-import api from "@/lib/api";
+import api from '@/lib/api';
 import type { Pet } from '@/types/pet';
 import type { RecipePlan } from '@/types/recipe';
 import RecipeView from '@/components/recipes/RecipeView';
 
-// ---------- utils: parsea respuesta (evita mostrar JSON crudo)
+/* -------------------------------------------------------------
+   Util: parsea/normaliza la respuesta para evitar mostrar JSON crudo
+-------------------------------------------------------------- */
 function safeParseRecipe(raw: any): RecipePlan | null {
   if (!raw) return null;
   if (typeof raw === 'object') return normalize(raw);
@@ -34,6 +42,9 @@ function safeParseRecipe(raw: any): RecipePlan | null {
   }
 }
 
+/* -------------------------------------------------------------
+   Página
+-------------------------------------------------------------- */
 export default function RecipeGeneratorPage() {
   const { isAuthenticated } = useAuth();
 
@@ -53,6 +64,8 @@ export default function RecipeGeneratorPage() {
   const [genLoading, setGenLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [plan, setPlan] = useState<RecipePlan | null>(null);
+
+  // Guardado favoritos
   const [saving, setSaving] = useState(false);
 
   // Carga mascotas (requiere auth)
@@ -70,17 +83,19 @@ export default function RecipeGeneratorPage() {
         setLoadingPets(false);
       }
     })();
-  }, [isAuthenticated]); // eslint-disable-line
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
 
   const selectedPet = useMemo(() => pets.find(p => p.id === petId) || null, [pets, petId]);
+  selectedPet; // silenciar TS si no lo usas aún
 
   async function generate() {
     setError(null);
     setPlan(null);
     setGenLoading(true);
     try {
-      // Mantengo compatibilidad: tu backend ya funciona con { goal, constraints }.
-      // Enviamos además extras; el backend puede ignorarlos si no los usa.
+      // Compatibilidad: el backend acepta { goal, constraints }.
+      // Se envían campos extra, que puede ignorar si no los usa.
       const payload = {
         petId: petId || undefined,
         goal: goal || undefined,
@@ -102,20 +117,25 @@ export default function RecipeGeneratorPage() {
     }
   }
 
-  async function addFavorite() {
-    if (!plan) return;
+  /**
+   * Guardar en favoritos SIN alert().
+   * Devuelve true al éxito. En error, lanza para que el consumidor pueda notificar.
+   */
+  async function addFavorite(): Promise<boolean> {
+    if (!plan) return false;
     setSaving(true);
     try {
       await api.post('/api/recipes/favorites', { plan, petId: petId || undefined });
-      alert('Guardado en favoritos ✅');
+      return true;
     } catch (e: any) {
-      alert(e?.message || 'No se pudo guardar');
+      // Propagamos el error para que RecipeView pueda mostrar su aviso
+      throw (e instanceof Error ? e : new Error('No se pudo guardar'));
     } finally {
       setSaving(false);
     }
   }
 
-  // Si no hay sesión → mensaje claro (como antes)
+  // Si no hay sesión → mensaje claro
   if (!isAuthenticated) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-6">
@@ -129,11 +149,11 @@ export default function RecipeGeneratorPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 space-y-6">
-      {/* Cabecera / Hero igual que antes (contenedor translúcido sobre imagen de fondo) */}
+      {/* Contenedor translúcido sobre la imagen de fondo */}
       <div className="rounded-2xl border bg-white/70 backdrop-blur p-4 md:p-6">
         <h1 className="text-xl md:text-2xl font-semibold">Generador de Recetas</h1>
 
-        {/* Formulario COMPLETO */}
+        {/* Formulario completo */}
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           {/* Mascota */}
           <label className="grid gap-1">
@@ -175,7 +195,7 @@ export default function RecipeGeneratorPage() {
               className="rounded-xl border px-3 py-2"
               value={include}
               onChange={(e) => setInclude(e.target.value)}
-              placeholder="arroz, zanahoria, ... "
+              placeholder="arroz, zanahoria, …"
             />
           </label>
 
@@ -186,7 +206,7 @@ export default function RecipeGeneratorPage() {
               className="rounded-xl border px-3 py-2"
               value={exclude}
               onChange={(e) => setExclude(e.target.value)}
-              placeholder="pollo alto en fibra, ... "
+              placeholder="pollo alto en fibra, …"
             />
           </label>
 
@@ -246,8 +266,13 @@ export default function RecipeGeneratorPage() {
         )}
       </div>
 
+      {/* Resultado */}
       {plan && (
-        <RecipeView plan={plan} onAddFavorite={addFavorite} adding={saving} />
+        <RecipeView
+          plan={plan}
+          onAddFavorite={addFavorite}  // ya no muestra alert(); RecipeView gestiona el banner
+          adding={saving}
+        />
       )}
     </div>
   );

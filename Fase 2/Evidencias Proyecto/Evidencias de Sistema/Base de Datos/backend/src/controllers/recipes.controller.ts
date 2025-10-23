@@ -1,4 +1,11 @@
 ﻿// src/controllers/recipes.controller.ts
+/**
+ * Controladores de recetas:
+ * - generateRecipe: genera un plan con Ollama y aplica límites diarios.
+ * - addFavorite: guarda una receta en favoritos con límite por plan.
+ * - listFavorites: lista favoritos del usuario autenticado.
+ * - deleteFavorite: elimina un favorito propio.
+ */
 import type { Request, Response } from "express";
 import { prisma } from "../services/prisma.ts";
 import { chatJSON } from "../services/ollama.ts";
@@ -21,7 +28,6 @@ function santiagoDateKey(d = new Date()) {
     month: "2-digit",
     day: "2-digit",
   }).formatToParts(d);
-
   const y = parts.find(p => p.type === "year")!.value;
   const m = parts.find(p => p.type === "month")!.value;
   const day = parts.find(p => p.type === "day")!.value;
@@ -29,10 +35,10 @@ function santiagoDateKey(d = new Date()) {
 }
 
 function santiagoResetAtISO(d = new Date()) {
-  // Próxima medianoche en America/Santiago → ISO UTC
+  // Próxima medianoche en America/Santiago → ISO UTC aproximado
   const dateKey = santiagoDateKey(d);
   const [Y, M, D] = dateKey.split("-").map(Number);
-  const next = new Date(Date.UTC(Y, M - 1, D + 1, 3, 0, 0)); // aprox: compensación huso; nos basta ISO
+  const next = new Date(Date.UTC(Y, M - 1, D + 1, 3, 0, 0));
   return next.toISOString();
 }
 
@@ -61,6 +67,8 @@ function yearsFrom(birth?: Date | null): number | null {
   return Math.round((ms / 31557600000) * 10) / 10; // 365.25 días
 }
 
+/* ====================== GENERATE ====================== */
+
 export async function generateRecipe(req: Request, res: Response) {
   try {
     const userId = (req as any).userId as string | undefined;
@@ -72,7 +80,7 @@ export async function generateRecipe(req: Request, res: Response) {
     const plan = getPlan(user.plan);
     const genLimit = LIMITS[plan].generationsPerDay;
 
-    // === Límite diario ===
+    // Límite diario
     const dateKey = santiagoDateKey();
     let stat = await prisma.dailyStat.findUnique({
       where: { userId_dateKey: { userId, dateKey } },
@@ -82,7 +90,7 @@ export async function generateRecipe(req: Request, res: Response) {
       return limitErr(res, 429, "LIMIT_GENERATIONS_REACHED", used, genLimit, true);
     }
 
-    // === Entrada ===
+    // Entrada
     const {
       planType = "DAILY",
       goals = "",
@@ -105,7 +113,7 @@ export async function generateRecipe(req: Request, res: Response) {
 
     const effectivePetId = String(petIdBody || pet_id || petProfileIn?.id || "");
 
-    // Armar petProfile si no viene embebido
+    // Construir perfil de mascota si no viene embebido
     let petProfile = petProfileIn as any;
     if (!petProfile && effectivePetId) {
       const pet = await prisma.pet.findFirst({
@@ -164,7 +172,7 @@ export async function generateRecipe(req: Request, res: Response) {
       }
     }
 
-    // === Prompt a Ollama (JSON estricto) ===
+    // Prompt
     const sys = [
       "Eres NutriHuella, asistente de nutrición para mascotas.",
       "Devuelve SOLO JSON válido, sin comentarios, sin texto adicional.",
@@ -189,7 +197,7 @@ Estructura JSON estricta:
   "shoppingList": ["string"],
   "warnings": ["string"],
   "notes": "string",
-  "disclaimer": "Estos resultados son solo de referencia y no deben tratarse como base para un tratamiento médico..."
+  "disclaimer": "Estos resultados son solo de referencia y no deben tratarse como base..."
 }
 
 Contexto mascota: ${JSON.stringify(petProfile)}
@@ -206,15 +214,13 @@ Objetivos: ${goals}
       recipe = { title: "Receta generada", planType, notes: "Respuesta no-JSON", raw };
     }
 
-    // === Incrementar conteo diario ===
+    // Incremento de conteo diario
     await prisma.$transaction(async (tx) => {
-      const current = await tx.dailyStat.upsert({
+      await tx.dailyStat.upsert({
         where: { userId_dateKey: { userId, dateKey } },
         update: { recipesGeneratedCount: { increment: 1 } },
         create: { userId, dateKey, recipesGeneratedCount: 1 },
       });
-      // Return shape no se usa aquí; solo aseguramos el incremento.
-      current;
     });
 
     return res.json({ recipe, recipeId: null });
@@ -223,6 +229,8 @@ Objetivos: ${goals}
     return res.status(500).json({ message: "No fue posible generar la receta." });
   }
 }
+
+/* ====================== FAVORITES ====================== */
 
 export async function addFavorite(req: Request, res: Response) {
   try {
@@ -248,7 +256,6 @@ export async function addFavorite(req: Request, res: Response) {
       petId?: string;
     };
 
-    // Para este modelo, guardamos el JSON completo que venga en `recipe`
     const payload = recipe ?? null;
     if (!payload) {
       return res.status(400).json({ message: "Falta el contenido de la receta a guardar." });
@@ -268,5 +275,63 @@ export async function addFavorite(req: Request, res: Response) {
   } catch (err: any) {
     console.error("addFavorite error:", err?.message || err);
     return res.status(500).json({ message: "No fue posible guardar en favoritos." });
+  }
+}
+
+/** Lista favoritos del usuario autenticado. */
+export async function listFavorites(req: Request, res: Response) {
+  try {
+    const userId = (req as any).userId as string | undefined;
+    if (!userId) return res.status(401).json({ message: "No autorizado" });
+
+    const rows = await prisma.favoriteRecipe.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        title: true,
+        planType: true,
+        createdAt: true,
+        contentJson: true,
+      },
+    });
+
+    const data = rows.map((r) => {
+      let recipe: any = null;
+      try { recipe = JSON.parse(r.contentJson); } catch { recipe = null; }
+      return {
+        id: r.id,
+        title: r.title,
+        planType: r.planType,
+        createdAt: r.createdAt,
+        recipe, // JSON parseado listo para frontend
+      };
+    });
+
+    return res.json(data);
+  } catch (err: any) {
+    console.error("listFavorites error:", err?.message || err);
+    return res.status(500).json({ message: "No fue posible listar favoritos." });
+  }
+}
+
+/** Elimina un favorito propio. */
+export async function deleteFavorite(req: Request, res: Response) {
+  try {
+    const userId = (req as any).userId as string | undefined;
+    if (!userId) return res.status(401).json({ message: "No autorizado" });
+
+    const id = String(req.params.id || "");
+    if (!id) return res.status(400).json({ message: "ID requerido" });
+
+    // Verificamos propiedad
+    const row = await prisma.favoriteRecipe.findUnique({ where: { id } });
+    if (!row || row.userId !== userId) return res.status(404).json({ message: "No encontrado" });
+
+    await prisma.favoriteRecipe.delete({ where: { id } });
+    return res.json({ ok: true });
+  } catch (err: any) {
+    console.error("deleteFavorite error:", err?.message || err);
+    return res.status(500).json({ message: "No fue posible eliminar el favorito." });
   }
 }

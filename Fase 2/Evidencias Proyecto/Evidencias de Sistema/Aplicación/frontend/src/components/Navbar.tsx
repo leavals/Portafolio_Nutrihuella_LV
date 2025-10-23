@@ -1,17 +1,17 @@
 // src/components/Navbar.tsx
-'use client'
+'use client';
 
-import Link from 'next/link'
-import Image from 'next/image'
-import { usePathname } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link';
+import Image from 'next/image';
+import { usePathname } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 import {
   Menu, Search, LogOut, User2, PawPrint, Heart, Utensils, Home, ChefHat, Crown,
-} from 'lucide-react'
-import { useAuth } from '@/lib/auth-context'
-import usePlusUpgrade from '@/hooks/usePlusUpgrade'
+} from 'lucide-react';
+import { useAuth } from '@/lib/auth-context';
+import usePlusUpgrade from '@/hooks/usePlusUpgrade';
 
-type NavItem = { href: string; label: string; Icon: React.ComponentType<any> }
+type NavItem = { href: string; label: string; Icon: React.ComponentType<any> };
 
 const authNav: NavItem[] = [
   { href: '/', label: 'Inicio', Icon: Home },
@@ -19,24 +19,24 @@ const authNav: NavItem[] = [
   { href: '/pantry', label: 'Mi despensa', Icon: Utensils },
   { href: '/recipes/favorites', label: 'Recetas favoritas', Icon: Heart },
   { href: '/recipes/generator', label: 'Generador de Recetas', Icon: ChefHat },
-]
+];
 
 export default function Navbar() {
-  const pathname = usePathname()
-  const { user, loading, displayName, logout, isAuthenticated } = useAuth()
-  const { startUpgrade } = usePlusUpgrade()
+  const pathname = usePathname();
+  const { user, plan, isPlus, loading, displayName, logout, isAuthenticated, cancelPlus } = useAuth();
+  const { startUpgrade } = usePlusUpgrade();
 
-  const [open, setOpen] = useState(false)
-  const popRef = useRef<HTMLDivElement | null>(null)
+  const [open, setOpen] = useState(false);
+  const popRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
-      if (!popRef.current) return
-      if (!popRef.current.contains(e.target as Node)) setOpen(false)
+      if (!popRef.current) return;
+      if (!popRef.current.contains(e.target as Node)) setOpen(false);
     }
-    document.addEventListener('click', onClick)
-    return () => document.removeEventListener('click', onClick)
-  }, [])
+    document.addEventListener('click', onClick);
+    return () => document.removeEventListener('click', onClick);
+  }, []);
 
   return (
     <header className="sticky top-0 z-30 w-full bg-white/80 backdrop-blur border-b border-white/50">
@@ -62,16 +62,45 @@ export default function Navbar() {
           />
         </div>
 
-        {/* CTA Upgrade (desktop, visible al estar autenticado) */}
+        {/* Estado de cuenta + CTA (desktop, solo autenticado) */}
         {isAuthenticated && (
-          <button
-            className="hidden md:inline-flex items-center gap-2 rounded-xl border bg-white/90 hover:bg-white px-3 py-2 shadow-sm ml-2"
-            onClick={() => startUpgrade()}
-            title="Actualizar a Plus"
-          >
-            <Crown className="h-4 w-4 text-amber-500" />
-            <span className="text-sm">Actualizar a Plus</span>
-          </button>
+          <div className="hidden md:flex items-center gap-2 ml-2">
+            <span
+              className={`text-xs px-2 py-1 rounded-full border ${
+                isPlus
+                  ? 'border-emerald-600 text-emerald-700 bg-emerald-50'
+                  : 'border-slate-300 text-slate-700 bg-white'
+              }`}
+              title="Estado de la cuenta"
+            >
+              Cuenta: {isPlus ? 'Plus' : 'Básica'}
+            </span>
+
+            {!isPlus ? (
+              <button
+                className="inline-flex items-center gap-2 rounded-xl border bg-white/90 hover:bg-white px-3 py-2 shadow-sm"
+                onClick={() => startUpgrade()}
+                title="Actualizar a Plus"
+              >
+                <Crown className="h-4 w-4 text-amber-500" />
+                <span className="text-sm">Actualizar a Plus</span>
+              </button>
+            ) : (
+              <button
+                className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 shadow-sm bg-white/90 hover:bg-white text-red-700 border-red-300"
+                onClick={async () => {
+                  const ok = window.confirm(
+                    '¿Seguro que deseas cancelar tu membresía Plus? Perderás los beneficios de Plus y volverás a la cuenta Básica.'
+                  );
+                  if (!ok) return;
+                  await cancelPlus();
+                }}
+                title="Cancelar membresía Plus"
+              >
+                <span className="text-sm">Cancelar membresía Plus</span>
+              </button>
+            )}
+          </div>
         )}
 
         {/* Auth (desktop) */}
@@ -117,7 +146,10 @@ export default function Navbar() {
                     Mi Perfil
                   </Link>
                   <button
-                    onClick={() => { setOpen(false); logout(); }}
+                    onClick={() => {
+                      setOpen(false);
+                      logout();
+                    }}
                     className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
                   >
                     <LogOut className="h-4 w-4" />
@@ -128,8 +160,12 @@ export default function Navbar() {
             </div>
           ) : (
             <>
-              <Link href="/login" className="btn btn-outline-primary">Iniciar sesión</Link>
-              <Link href="/register" className="btn btn-primary">Crear cuenta</Link>
+              <Link href="/login" className="btn btn-outline-primary">
+                Iniciar sesión
+              </Link>
+              <Link href="/register" className="btn btn-primary">
+                Crear cuenta
+              </Link>
             </>
           )}
         </div>
@@ -150,26 +186,28 @@ export default function Navbar() {
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <ul className="flex justify-center items-center gap-8 text-sm py-2 overflow-x-auto">
               {authNav.map(({ href, label, Icon }) => {
-                const active = pathname === href || pathname.startsWith(href + '/')
+                const active = pathname === href || pathname.startsWith(href + '/');
                 return (
                   <li key={href}>
                     <Link
                       href={href}
                       aria-current={active ? 'page' : undefined}
-                      className={active
-                        ? 'text-[--nh-primary] font-medium inline-flex items-center gap-2'
-                        : 'hover:text-[--nh-primary] inline-flex items-center gap-2'}
+                      className={
+                        active
+                          ? 'text-[--nh-primary] font-medium inline-flex items-center gap-2'
+                          : 'hover:text-[--nh-primary] inline-flex items-center gap-2'
+                      }
                     >
                       <Icon className="h-4 w-4" />
                       {label}
                     </Link>
                   </li>
-                )
+                );
               })}
             </ul>
           </div>
         </nav>
       )}
     </header>
-  )
+  );
 }

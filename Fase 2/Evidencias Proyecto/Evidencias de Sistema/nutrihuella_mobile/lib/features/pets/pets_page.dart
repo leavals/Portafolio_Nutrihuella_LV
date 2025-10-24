@@ -3,19 +3,14 @@
 // Cambios mínimos y focalizados:
 // - Se agrega un “tick de recarga” (_reloadTick) y una Key variable al PetListPage.
 //   Cada vez que volvemos de crear/eliminar (pop(true)), incrementamos el tick,
-//   forzando a que PetListPage se reconstruya desde cero (initState incluido)
-//   y, con ello, su recarga de datos.
-// - Se mantiene la navegación con GoRouter usando la ruta con nombre 'pet-new'.
+//   forzando a que PetListPage se reconstruya desde cero (initState incluido).
+// - El FAB vive aquí (tab Mascotas) y abre la ruta con nombre 'pet-new'.
+// - PetListPage se usa en modo embebido (embedded: true) para NO duplicar AppBar/FAB.
 // - No se modifica ningún otro tab, estilo o dependencia.
 //
 // Notas de integración:
 // - Cualquier pantalla que cree/edite/elimine una mascota debe hacer `context.pop(true)`
 //   al regresar para que este Scaffold incremente el _reloadTick y fuerce la recarga.
-// - Si tu flujo de eliminación muestra confirmación (como corresponde), tras confirmar
-//   y completar la eliminación, haz `context.pop(true)` desde la pantalla que inició
-//   el flujo (por ejemplo, detalles), o devuelve `true` si la acción se hace en un
-//   diálogo modal con push. Con eso bastará para refrescar el listado al volver aquí.
-//
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -40,14 +35,13 @@ class _PetsPageState extends State<PetsPage> {
   @override
   Widget build(BuildContext context) {
     final pages = <Widget>[
-      // Importante: quitamos "const" y le pasamos una Key basada en _reloadTick.
-      // Cada incremento de _reloadTick provoca que Flutter considere este widget
-      // como "nuevo" y lo vuelva a montar (initState -> recarga).
-      PetListPage(key: ValueKey<int>(_reloadTick)), // Mascotas
-      const _SimplePlaceholder('Despensa'),         // Despensa
-      const _SimplePlaceholder('Recetas'),          // Recetas
-      const _SimplePlaceholder('Favoritos'),        // Favoritos
-      const ProfilePage(),                          // Perfil
+      // Usamos PetListPage en modo embebido y con Key basada en _reloadTick.
+      // Cada incremento de _reloadTick monta de nuevo el widget (initState -> recarga).
+      PetListPage(key: ValueKey<int>(_reloadTick), embedded: true), // Mascotas
+      const _SimplePlaceholder('Despensa'),                         // Despensa
+      const _SimplePlaceholder('Recetas'),                          // Recetas
+      const _SimplePlaceholder('Favoritos'),                        // Favoritos
+      const ProfilePage(),                                          // Perfil
     ];
 
     return Scaffold(
@@ -58,7 +52,7 @@ class _PetsPageState extends State<PetsPage> {
       floatingActionButton: _index == 0
           ? FloatingActionButton.extended(
               onPressed: () async {
-                // Navegamos al formulario de nueva mascota usando la ruta con nombre existente.
+                // Abre el formulario de nueva mascota (ruta con nombre existente).
                 // El formulario debe hacer context.pop(true) si crea correctamente.
                 final bool? ok = await context.pushNamed<bool>('pet-new');
 

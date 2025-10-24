@@ -1,10 +1,11 @@
 // lib/features/pets/pet_list_page.dart
 //
-// Correcciones clave:
-// - FAB “Nueva mascota” ahora navega al formulario correcto (ruta 'pet-new')
-//   y recarga la lista al volver con éxito.
-// - Mantiene la API y el estilo actuales. No se toca el resto de la app.
-//
+// Correcciones clave (focalizadas):
+// - Este widget se usa embebido desde PetsPage (embedded: true), por lo que
+//   NO define su propio FAB ni AppBar cuando está embebido (evitamos duplicados).
+// - Al tocar una mascota, navegamos a 'pet-details' y si el detalle hace
+//   context.pop(true) (por ejemplo tras eliminar con confirmación), recargamos.
+// - Mantiene API y estilos actuales. No se toca el resto de la app.
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -52,18 +53,6 @@ class _PetListPageState extends State<PetListPage> {
     }
   }
 
-  Future<void> _newPet() async {
-    // Abre el formulario nombrado 'pet-new' y, si vuelve true, recarga.
-    final result = await context.pushNamed<bool>('pet-new');
-    if (result == true) {
-      await _load();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Mascota creada correctamente.')),
-      );
-    }
-  }
-
   Widget _buildList(BuildContext context) {
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
@@ -103,16 +92,25 @@ class _PetListPageState extends State<PetListPage> {
           ),
           child: ListTile(
             leading: const Icon(Icons.pets),
-            title: Text(p['name']?.toString() ?? 'Mascota',
-                style: const TextStyle(fontWeight: FontWeight.w600)),
+            title: Text(
+              p['name']?.toString() ?? 'Mascota',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
             subtitle: Text(
               [species, breed, weightStr].where((s) => s.isNotEmpty).join(' • '),
             ),
             trailing: const Icon(Icons.more_vert),
-            onTap: () {
+            onTap: () async {
               final id = (p['id'] ?? p['_id']).toString();
               if (id.isNotEmpty) {
-                context.pushNamed('pet-details', pathParameters: {'id': id});
+                // Al volver con true (p. ej., eliminar/editar), recargamos.
+                final bool? changed = await context.pushNamed<bool>(
+                  'pet-details',
+                  pathParameters: {'id': id},
+                );
+                if (changed == true) {
+                  await _load();
+                }
               }
             },
           ),
@@ -125,18 +123,15 @@ class _PetListPageState extends State<PetListPage> {
   Widget build(BuildContext context) {
     final content = _buildList(context);
 
+    // En modo embebido NO devolvemos Scaffold con AppBar/FAB para evitar duplicados.
     if (widget.embedded) {
       return content;
     }
 
+    // Compatibilidad si en otro flujo se usa como página completa.
     return Scaffold(
       appBar: AppBar(title: const Text('NutriHuella')),
       body: content,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _newPet,
-        icon: const Icon(Icons.add),
-        label: const Text('Nueva mascota'),
-      ),
     );
   }
 }

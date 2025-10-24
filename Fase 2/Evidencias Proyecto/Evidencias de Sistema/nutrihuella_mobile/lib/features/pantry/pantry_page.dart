@@ -1,8 +1,12 @@
 // lib/features/pantry/pantry_page.dart
 //
 // Pantalla de Despensa con lista de ítems y botón para crear un nuevo ítem.
-// Se limita a lo necesario: listar y "ingresar ítem" como en el frontend.
-// No cambia rutas, ni modelos globales, ni otras pantallas.
+// Corrección mínima para mitigar el error de compilación:
+// - Se reemplaza el uso incorrecto de `Stack` con parámetros `appBar`/`body` por un `Scaffold` válido.
+// - Se mantiene el listado y el FAB "Nuevo ítem" sin cambiar otras pantallas, rutas ni modelos.
+//
+// Notas:
+// - Al cerrar el formulario con éxito, se recarga la lista y se muestra un SnackBar.
 
 import 'package:flutter/material.dart';
 
@@ -56,8 +60,7 @@ class _PantryPageState extends State<PantryPage> {
     );
 
     if (created == true) {
-      // Si se creó, recargamos la lista.
-      _load();
+      await _load();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Ítem de despensa creado.')),
@@ -128,8 +131,6 @@ class _PantryPageState extends State<PantryPage> {
                   Text('Vence: $expiresStr', style: const TextStyle(fontSize: 12)),
               ],
             ),
-            // Acciones mínimas. No se agrega edición/borrado porque no fue
-            // solicitado. Si lo necesitas luego, lo habilitamos aquí.
           ),
         );
       },
@@ -138,21 +139,18 @@ class _PantryPageState extends State<PantryPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Esta pantalla puede vivir dentro del Home; no crea AppBar propio.
-    return Stack(
-      appBar: AppBar(title: const Text('Articulos de la despensa'), centerTitle: true),
-      children: [
-        _buildList(),
-        Positioned(
-          right: 16,
-          bottom: 16,
-          child: FloatingActionButton.extended(
-            onPressed: _openCreate,
-            icon: const Icon(Icons.add),
-            label: const Text('Nuevo ítem'),
-          ),
-        ),
-      ],
+    // Uso de Scaffold correcto (antes se intentaba usar Stack con appBar/body).
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Articulos de la despensa'),
+        centerTitle: true,
+      ),
+      body: _buildList(),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _openCreate,
+        icon: const Icon(Icons.add),
+        label: const Text('Nuevo ítem'),
+      ),
     );
   }
 }

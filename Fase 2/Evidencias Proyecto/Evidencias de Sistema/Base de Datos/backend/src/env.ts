@@ -23,11 +23,12 @@ const EnvSchema = z.object({
   TBK_ENV: z.enum(["integration", "production"]).default("integration"),
   TBK_COMMERCE_CODE: z.string().optional(),
   TBK_API_KEY: z.string().optional(),
+
+  // Estas dos quedan como fallback para cuando NO mandamos finalUrl desde el cliente
   TBK_RETURN_URL: z.string().url().default("http://localhost:3000/plus/return"),
   TBK_FINAL_URL: z.string().url().default("http://localhost:3000/plus/success"),
 });
 
 export const env = EnvSchema.parse(process.env);
-
 export const isProduction = env.NODE_ENV === "production";
 export const isIntegration = env.TBK_ENV === "integration";

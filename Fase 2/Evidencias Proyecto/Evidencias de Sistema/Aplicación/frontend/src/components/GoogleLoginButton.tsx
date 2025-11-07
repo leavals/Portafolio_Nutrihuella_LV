@@ -1,58 +1,80 @@
 // src/components/GoogleLoginButton.tsx
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+/// <reference types="google.accounts" />
+
+import { useEffect, useRef } from "react";
 import { useAuth } from "@/lib/auth-context";
 
 type Props = { onSuccess?: () => void };
 
 export default function GoogleLoginButton({ onSuccess }: Props) {
   const { loginGoogle } = useAuth();
-  const [ready, setReady] = useState(false);
-  const btnRef = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLDivElement | null>(null);
+  const initializedRef = useRef(false);
+  const renderedRef = useRef(false);
+
+  const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
   useEffect(() => {
-    const id = "google-gsi";
-    if (!document.getElementById(id)) {
-      const s = document.createElement("script");
-      s.src = "https://accounts.google.com/gsi/client";
-      s.async = true;
-      s.defer = true;
-      s.id = id;
-      s.onload = () => setReady(true);
-      document.head.appendChild(s);
+    const initAndRender = () => {
+      if (!window.google?.accounts?.id) return;
+      if (!btnRef.current) return;
+
+      if (!clientId) {
+        console.error("Falta NEXT_PUBLIC_GOOGLE_CLIENT_ID");
+        return;
+      }
+
+      if (!initializedRef.current) {
+        window.google.accounts.id.initialize({
+          client_id: clientId,
+          callback: async (resp) => {
+            try {
+              await loginGoogle(resp.credential);
+              onSuccess?.();
+            } catch (e) {
+              console.error("Google login error:", e);
+            }
+          },
+        });
+        initializedRef.current = true;
+      }
+
+      btnRef.current.innerHTML = "";
+      window.google.accounts.id.renderButton(btnRef.current, {
+        theme: "outline",
+        size: "large",
+        shape: "pill",
+        logo_alignment: "left",
+        text: "signin_with",
+      });
+      renderedRef.current = true;
+    };
+
+    if (window.google?.accounts?.id) {
+      initAndRender();
     } else {
-      setReady(true);
-    }
-  }, []);
+      const onLoaded = () => initAndRender();
+      window.addEventListener("gsi_loaded", onLoaded);
 
-  useEffect(() => {
-    if (!ready || !btnRef.current || !(window as any).google) return;
-
-    (window as any).google.accounts.id.initialize({
-      client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
-      callback: async (response: any) => {
-        try {
-          await loginGoogle(response.credential);
-          onSuccess?.();
-        } catch {
-          // podrías mostrar un toast de error aquí
+      const iv = window.setInterval(() => {
+        if (window.google?.accounts?.id && !renderedRef.current) {
+          initAndRender();
+          window.clearInterval(iv);
         }
-      },
-    });
+      }, 100);
 
-    (window as any).google.accounts.id.renderButton(btnRef.current, {
-      theme: "outline",
-      size: "large",
-      shape: "pill",
-      logo_alignment: "left",
-      text: "signin_with",
-    } as any);
-  }, [ready, onSuccess, loginGoogle]);
+      return () => {
+        window.removeEventListener("gsi_loaded", onLoaded);
+        window.clearInterval(iv);
+      };
+    }
+  }, [loginGoogle, onSuccess, clientId]);
 
   return (
     <div className="w-full flex justify-center">
-      <div ref={btnRef} />
+      <div ref={btnRef} data-testid="google-btn" />
     </div>
   );
 }

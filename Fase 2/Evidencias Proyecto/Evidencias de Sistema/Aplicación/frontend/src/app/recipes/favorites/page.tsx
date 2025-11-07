@@ -6,6 +6,7 @@
  * - Permite eliminar un favorito.
  */
 import { useEffect, useState } from 'react';
+import { Heart } from 'lucide-react';
 import { FavoriteRecipe, getFavorites, removeFavorite } from '@/services/recipes';
 
 export default function FavoritesPage() {
@@ -47,10 +48,26 @@ export default function FavoritesPage() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <header className="mb-6">
-        <h1 className="text-3xl font-semibold text-ink">Recetas favoritas</h1>
-        <p className="text-sm text-muted">Tus menús guardados para volver a usarlos cuando quieras.</p>
-      </header>
+      {/* Header: card con título + subtítulo dentro */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-3xl font-semibold text-ink flex">
+            <div className="card w-fit">
+              <div className="flex items-start gap-3">
+                <Heart className="h-6 w-6 text-[--nh-primary] mt-[2px]" />
+                <div>
+                  <span className="text-2xl font-semibold text-ink leading-tight">
+                    Recetas favoritas
+                  </span>
+                  <span className="block text-xs text-muted mt-0.5">
+                    Tus menús guardados para volver a usarlos cuando quieras.
+                  </span>
+                </div>
+              </div>
+            </div>
+          </h1>
+        </div>
+      </div>
 
       {error && (
         <div className="mb-4 rounded-xl border bg-[#FEF2F2] border-[#EF4444]/30 text-[#991B1B] px-3 py-2 text-sm">
@@ -77,7 +94,10 @@ export default function FavoritesPage() {
                   <div>
                     <h2 className="text-xl font-semibold text-ink">{title}</h2>
                     <p className="text-xs text-muted">
-                      {plan ? `${plan} • ` : ''}{new Date(fav.createdAt).toLocaleString()}
+                      {plan ? `${plan} • ` : ''}
+                      <time dateTime={new Date(fav.createdAt).toISOString()}>
+                        {new Date(fav.createdAt).toLocaleString()}
+                      </time>
                     </p>
                   </div>
                   <button

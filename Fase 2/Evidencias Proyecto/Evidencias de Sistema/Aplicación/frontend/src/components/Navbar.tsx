@@ -81,9 +81,9 @@ export default function Navbar() {
 
         {/* Estado de cuenta + CTA (desktop, solo autenticado) */}
         {isAuthenticated && (
-          <div className="hidden md:flex items-center gap-2 ml-2">
+          <div className="hidden md:flex items-center justify-center text-center gap-2 ml-2">
             <span
-              className={`text-xs px-2 py-1 rounded-full border ${
+              className={`text-xs px-2 py-1 rounded-full border flex justify-center ${
                 isPlus
                   ? 'border-emerald-600 text-emerald-700 bg-emerald-50'
                   : 'border-slate-300 text-slate-700 bg-white'
@@ -100,7 +100,7 @@ export default function Navbar() {
                 title="Actualizar a Plus"
               >
                 <Crown className="h-4 w-4 text-amber-500" />
-                <span className="text-sm">Actualizar a Plus</span>
+                <span className="text-sm content-center">Actualizar a Plus</span>
               </button>
             ) : (
               <button
@@ -114,7 +114,7 @@ export default function Navbar() {
                 }}
                 title="Cancelar membresía Plus"
               >
-                <span className="text-sm">Cancelar membresía Plus</span>
+                <span className="text-sm content-center">Cancelar Membresía Plus</span>
               </button>
             )}
           </div>

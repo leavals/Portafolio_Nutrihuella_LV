@@ -14,42 +14,30 @@ async function request<T = any>(path: string, opts: Opts = {}) {
       method: opts.method || 'GET',
       headers: {
         'Content-Type': 'application/json',
-        Accept: 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(opts.headers || {}),
       },
       body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
-      credentials: 'omit',
     });
 
-    const text = await res.text().catch(() => '');
-    let json: any = null;
-    try { json = text ? JSON.parse(text) : null; } catch {}
+    // Lee como texto primero para evitar fallas con body vacío
+    const ct = res.headers.get('content-type') || '';
+    const text = await res.text();
+    const data = ct.includes('application/json') && text ? JSON.parse(text) : (text || null);
 
     if (!res.ok) {
-      const msg = json?.message || json?.error || text || `${res.status} ${res.statusText || 'Error'}`;
-      console.error('API error', {
-        url, method: opts.method || 'GET',
-        status: res.status, statusText: res.statusText,
-        message: msg, responseText: text, responseJson: json,
-      });
-      const err = new Error(msg) as any;
-      err.status = res.status;
-      err.responseText = text;
-      err.responseJson = json;
-      throw err;
+      const msg =
+        (data && (data.message || data.error)) ||
+        res.statusText ||
+        'Error en la solicitud';
+      throw new Error(msg);
     }
 
-    if (!text) return null as any;
-    const ct = res.headers.get('content-type') || '';
-    return (ct.includes('application/json') ? json : (text as any)) as T;
+    // 204/201 sin body → null
+    return (text ? (data as T) : (null as T));
   } catch (e: any) {
-    const isNetwork = e?.name === 'TypeError' || /Failed to fetch/i.test(String(e?.message));
-    if (isNetwork) {
-      console.error('Network/CORS error calling API', { url, opts });
-      throw new Error('No se pudo conectar con el backend. Verifica que el servidor en :4000 esté encendido y que CORS permita Authorization.');
-    }
-    throw e;
+    // Re-lanza con mensaje claro
+    throw new Error(e?.message || 'Error de red');
   }
 }
 

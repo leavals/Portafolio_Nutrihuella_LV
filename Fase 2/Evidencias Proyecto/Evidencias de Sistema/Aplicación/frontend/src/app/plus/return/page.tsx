@@ -1,99 +1,124 @@
 // src/app/plus/return/page.tsx
 'use client';
 
-/**
- * Página de retorno desde Transbank.
- *
- * - Toma el parámetro `token_ws` de la URL (o detecta si vino `TBK_TOKEN` en caso de anulación).
- * - Llama al backend en /api/payments/plus/commit enviando { token_ws }.
- * - Si el backend autoriza, navega a /plus/success. Si no, muestra el motivo.
- *
- * NOTA: Antes se enviaba { token }, lo que provocaba el error "token_ws requerido".
- *       Este fix asegura que el payload sea { token_ws }.
- */
-
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import api from '@/lib/api';
+import { api } from '@/lib/api';            // wrapper fetch a :4000
+import { useAuth } from '@/lib/auth-context';
+
+type Phase = 'committing' | 'polling' | 'ok' | 'fail';
+
+const MAX_POLLS = 8;      // intentos de verificación
+const POLL_DELAY = 1500;  // ms entre intentos
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export default function PlusReturnPage() {
   const sp = useSearchParams();
   const router = useRouter();
+  const { isPlus, refresh } = useAuth();
 
-  const [status, setStatus] = useState<'pending' | 'ok' | 'fail'>('pending');
-  const [message, setMessage] = useState<string>('Procesando pago…');
+  const [phase, setPhase] = useState<Phase>('committing');
+  const [detail, setDetail] = useState('Confirmando tu pago…');
+  const running = useRef(false);
+
+  const tokenWs = sp.get('token_ws');
+  const tbkCancel = sp.get('TBK_TOKEN');   // Transbank manda esto si se anuló
+
+  const title = useMemo(() => {
+    switch (phase) {
+      case 'committing': return 'Volviendo del proveedor de pago…';
+      case 'polling':    return 'Verificando acreditación…';
+      case 'ok':         return 'Pago confirmado';
+      case 'fail':       return 'No se pudo confirmar el pago';
+      default:           return 'Volviendo del proveedor de pago…';
+    }
+  }, [phase]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    // Transbank retorna:
-    //  - token_ws (transacción normal a confirmar)
-    //  - TBK_TOKEN (si el pagador canceló/abandonó)
-    const token_ws = sp.get('token_ws');
-    const tbkToken = sp.get('TBK_TOKEN');
-
-    // Caso anulado/cancelado por el usuario
-    if (!token_ws && tbkToken) {
-      setStatus('fail');
-      setMessage('La transacción fue cancelada por el usuario.');
-      return;
-    }
-
-    // Si no llegó token_ws, no se puede confirmar
-    if (!token_ws) {
-      setStatus('fail');
-      setMessage('token_ws requerido');
-      return;
-    }
+    if (running.current) return;
+    running.current = true;
 
     (async () => {
+      if (tbkCancel) {
+        setPhase('fail');
+        setDetail('La transacción fue cancelada por el usuario.');
+        return;
+      }
+      if (!tokenWs) {
+        setPhase('fail');
+        setDetail('token_ws requerido.');
+        return;
+      }
+
       try {
-        // IMPORTANTE: enviar { token_ws }, no { token }
-        const res = await api.post('/api/payments/plus/commit', { token_ws });
+        // 1) Intento normal de commit
+        setPhase('committing');
+        setDetail('Confirmando tu pago…');
+        await api.post('/api/payments/plus/commit', { token_ws: tokenWs });
 
-        // Compatibilidad con distintas respuestas del backend:
-        const authorized =
-          res?.ok === true ||
-          res?.authorized === true ||
-          res?.status === 'AUTHORIZED' ||
-          res?.status === 'OK';
+        // 2) Refrescar sesión/plan
+        await refresh();
 
-        if (authorized) {
-          if (cancelled) return;
-          setStatus('ok');
-          setMessage('Pago autorizado. Actualizando tu plan…');
-          // Redirige a la pantalla de éxito
-          setTimeout(() => router.replace('/plus/success'), 800);
-        } else {
-          if (cancelled) return;
-          setStatus('fail');
-          setMessage(
-            res?.message ||
-              'El pago no fue autorizado. Si el cargo aparece en tu banco, se reversará automáticamente en pocos minutos.'
-          );
+        // 3) Si ya somos PLUS → éxito
+        if (isPlus) {
+          setPhase('ok');
+          setDetail('¡Listo! Tu cuenta ya es Plus. Redirigiendo…');
+          router.replace('/plus/success');
+          return;
         }
+
+        // 4) Puede demorar la propagación → polling
+        setPhase('polling');
+        setDetail('Pago confirmado. Verificando tu cuenta unos segundos…');
+        for (let i = 0; i < MAX_POLLS; i++) {
+          await sleep(POLL_DELAY);
+          await refresh();
+          if (isPlus) {
+            setPhase('ok');
+            setDetail('¡Listo! Tu cuenta ya es Plus. Redirigiendo…');
+            router.replace('/plus/success');
+            return;
+          }
+        }
+        setPhase('fail');
+        setDetail('Confirmamos el pago pero no pudimos sincronizar tu cuenta. Actualiza la página o vuelve al inicio.');
       } catch (e: any) {
-        if (cancelled) return;
-        setStatus('fail');
-        setMessage(e?.message || 'No fue posible confirmar el pago.');
+        // 5) Fallback total si el commit falla por CORS/red
+        setPhase('polling');
+        setDetail('No pudimos confirmar directamente. Verificando estado de tu cuenta…');
+        for (let i = 0; i < MAX_POLLS; i++) {
+          await sleep(POLL_DELAY);
+          await refresh();
+          if (isPlus) {
+            setPhase('ok');
+            setDetail('¡Pago acreditado! Redirigiendo…');
+            router.replace('/plus/success');
+            return;
+          }
+        }
+        setPhase('fail');
+        setDetail(e?.message || 'No se pudo verificar la transacción.');
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [sp, router]);
+  const retry = () => {
+    running.current = false;
+    setPhase('committing');
+    setDetail('Reintentando confirmar tu pago…');
+  };
 
   return (
     <div className="max-w-md mx-auto bg-white rounded-2xl border p-6 text-center">
-      <h1 className="text-xl font-semibold mb-2">Volviendo de Transbank…</h1>
-      <p className="text-sm text-slate-600">{message}</p>
+      <h1 className="text-xl font-semibold mb-2">{title}</h1>
+      <p className="text-sm text-slate-600">{detail}</p>
 
-      {status === 'fail' && (
-        <div className="mt-4">
-          <a className="btn btn-outline" href="/profile">
-            Volver al perfil
-          </a>
+      {phase === 'fail' && (
+        <div className="mt-5 flex items-center justify-center gap-3">
+          <button onClick={retry} className="btn btn-primary">Reintentar</button>
+          <a className="btn btn-outline" href="/profile">Volver al perfil</a>
         </div>
       )}
     </div>

@@ -1,7 +1,9 @@
 // src/components/recipes/RecipeGeneratorForm.tsx
 'use client';
 import React from 'react';
-import { generateRecipe, addFavorite, sendFeedback, PlanType } from '@/services/recipes';
+import { addFavorite, sendFeedback, PlanType } from '@/services/recipes';
+import { withRecipeLoading } from '@/lib/recipeLoadingBus';
+import { generateRecipeAbortable } from '@/services/recipesLoading';
 import api from '@/lib/api';
 import RecipeCard from './RecipeCard';
 import PlusQuotaBanner from '@/components/PlusQuotaBanner';
@@ -68,12 +70,17 @@ export default function RecipeGeneratorForm() {
 
     setLoading(true);
     try {
-      const { recipe, recipeId } = await generateRecipe({
-        petId,
-        planType,
-        goals: goals?.trim() || undefined,
-        usePantry,
-      });
+       const { recipe, recipeId } = await withRecipeLoading(
+        (signal) =>
+          generateRecipeAbortable(
+            { petId, planType, goals: goals?.trim() || undefined, usePantry },
+            { signal }
+          ),
+      {
+          title: 'Generando tu receta con IA…',
+          subtitle: 'Lee un consejo útil mientras esperas.',
+        }
+      );
       setResult(recipe);
       setRecipeId(recipeId ?? null);
       window.scrollTo({ top: 0, behavior: 'smooth' });

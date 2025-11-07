@@ -1,12 +1,11 @@
 // frontend/src/types/google-accounts.d.ts
 // Tipos mínimos para Google Identity Services (One Tap / Sign In)
-
-// Evita colisiones si ya existen tipos
 export {};
 
 declare global {
   interface Window {
-    google?: typeof google;
+    // Importante: mismo tipo esperado por TS -> typeof google | undefined
+    google?: typeof google | undefined;
   }
 
   namespace google {
@@ -23,7 +22,7 @@ declare global {
           | 'unknown_reason';
 
         interface CredentialResponse {
-          credential: string;         // ID token (JWT)
+          credential: string; // ID token (JWT)
           select_by?: string;
           clientId?: string;
         }

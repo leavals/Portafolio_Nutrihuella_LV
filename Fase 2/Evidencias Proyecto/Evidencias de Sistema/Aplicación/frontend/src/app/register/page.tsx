@@ -1,7 +1,13 @@
+// frontend/src/app/register/page.tsx
+"use client";
+
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import RegisterForm from "@/components/RegisterForm";
 
 export default function RegisterPage() {
+  const router = useRouter();
+
   return (
     <div className="min-h-[calc(100vh-140px)] grid place-items-center px-4 py-8">
       <div className="w-full max-w-4xl rounded-2xl overflow-hidden shadow-2xl bg-white grid grid-cols-1 md:grid-cols-2">
@@ -23,7 +29,8 @@ export default function RegisterPage() {
             Crea tu cuenta con correo y contraseña o continúa con Google.
           </p>
 
-          <RegisterForm showTitle={false} />
+          {/* Al crear cuenta → ir a /login?m=registered */}
+          <RegisterForm showTitle={false} onSuccess={() => router.push("/login?m=registered")} />
         </div>
       </div>
     </div>

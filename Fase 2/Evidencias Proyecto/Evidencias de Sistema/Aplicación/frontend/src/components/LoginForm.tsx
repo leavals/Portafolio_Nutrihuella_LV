@@ -1,4 +1,4 @@
-// src/components/LoginForm.tsx
+// frontend/src/components/LoginForm.tsx
 "use client";
 
 import { useState } from "react";
@@ -8,10 +8,7 @@ import { TextField, PasswordField } from "@/components/form/Fields";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-type Props = {
-  onSuccess?: () => void; // usado por /login para manejar ?next
-  showTitle?: boolean;
-};
+type Props = { onSuccess?: () => void; showTitle?: boolean };
 
 export default function LoginForm({ onSuccess, showTitle = true }: Props) {
   const { loginEmail } = useAuth();
@@ -28,8 +25,6 @@ export default function LoginForm({ onSuccess, showTitle = true }: Props) {
     try {
       await loginEmail(email, pw);
       if (onSuccess) onSuccess();
-      // Si no se pasa onSuccess, no forzamos redirección aquí.
-      // Dejas este else vacío o redirige a un default si lo prefieres.
     } catch (e: any) {
       setErr(e?.message || "Credenciales inválidas");
     }
@@ -69,12 +64,17 @@ export default function LoginForm({ onSuccess, showTitle = true }: Props) {
         Entrar
       </button>
 
-      <p className="text-sm text-slate-600 mt-4">
-        ¿No tienes cuenta?{" "}
-        <Link className="underline text-[var(--nh-primary)]" href="/register">
-          Regístrate
+      <div className="flex items-center justify-between text-sm text-slate-600 mt-4">
+        <span>
+          ¿No tienes cuenta?{" "}
+          <Link className="underline text-[var(--nh-primary)]" href="/register">
+            Regístrate
+          </Link>
+        </span>
+        <Link className="underline text-[var(--nh-primary)]" href="/forgot-password">
+          ¿Olvidaste tu contraseña?
         </Link>
-      </p>
+      </div>
     </form>
   );
 }

@@ -1,3 +1,4 @@
+// backend/src/schemas/auth.schema.ts
 // ------------------------------------------------------------
 // Zod Schemas - Autenticación (validaciones reforzadas)
 // ------------------------------------------------------------
@@ -32,4 +33,13 @@ export const ForgotPasswordSchema = z.object({
 export const ResetPasswordSchema = z.object({
   token: z.string().min(24, 'Token inválido'),
   newPassword: strongPwd,
+});
+
+// ✅ nuevos esquemas para verificación
+export const VerifyEmailSchema = z.object({
+  token: z.string().min(24, 'Token inválido'),
+});
+
+export const ResendVerifySchema = z.object({
+  email: z.string().email('Email inválido'),
 });

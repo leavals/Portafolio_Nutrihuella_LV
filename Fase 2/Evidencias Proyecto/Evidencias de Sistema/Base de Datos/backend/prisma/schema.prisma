@@ -1,5 +1,5 @@
 // prisma/schema.prisma
-// ============================================== 
+// ==============================================
 // NutriHuella – Prisma schema (SQLite)
 // ==============================================
 
@@ -13,22 +13,41 @@ datasource db {
 }
 
 model User {
-  id           String  @id @default(cuid())
-  email        String  @unique
-  passwordHash String?
-  name         String?
-  googleId     String? @unique
-  picture      String?
+  id              String   @id @default(cuid())
+  email           String   @unique
+  passwordHash    String?
+  name            String?
+  googleId        String?  @unique
+  picture         String?
+
+  // Verificación de correo (si es null => no activada)
+  emailVerifiedAt DateTime?
+
+  // Rol de acceso (ADMIN | ANALYST | USER) - String (sin enums)
+  role            String   @default("USER")
+
+  // Perfil geográfico (para analítica comercial)
+  country         String?  @default("CL")
+  region          String?  @default("Región Metropolitana")
+  city            String?  @default("Santiago")
+  commune         String?  // Ej: Maipú, Ñuñoa, Puente Alto, etc.
+
+  // Dispositivo y actividad
+  deviceType      String?  @default("WEB") // WEB/ANDROID/IOS (texto)
+  lastLoginAt     DateTime?
+  deactivatedAt   DateTime?
+  isSuspended     Boolean  @default(false)
 
   pets        Pet[]
   pantry      PantryItem[]
   resetTokens PasswordResetToken[]
+  verifyTokens EmailVerifyToken[]
 
   recipes   Recipe[]
   feedbacks RecipeFeedback[]
 
   // Plan y membresía
-  plan                String    @default("BASIC") // "BASIC" | "PLUS"
+  plan                String    @default("BASIC")
   membershipUpdatedAt DateTime?
 
   // Favoritos y pagos / stats
@@ -36,8 +55,24 @@ model User {
   payments        Payment[]
   dailyStats      DailyStat[]
 
+  // Eventos analíticos (uso de la plataforma)
+  events AnalyticsEvent[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([role])
+  @@index([emailVerifiedAt])
+  @@index([city, commune])
+}
+
+model EmailVerifyToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
 }
 
 model Pet {
@@ -59,9 +94,8 @@ model Pet {
   weights    WeightHistory[]
   photoUrl   String?
 
-  // Back-relations
   recipes         Recipe[]
-  favoriteRecipes FavoriteRecipe[] // ✅ inversa de FavoriteRecipe.pet
+  favoriteRecipes FavoriteRecipe[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -123,7 +157,7 @@ model Disease {
   pet         Pet      @relation(fields: [petId], references: [id])
   name        String
   diagnosedAt DateTime
-  status      String   @default("ACTIVE") // ACTIVE | RESOLVED | CRONIC
+  status      String   @default("ACTIVE") // texto
 
   @@index([petId])
 }
@@ -167,19 +201,19 @@ model PasswordResetToken {
   usedAt    DateTime?
 }
 
-// El contenido de recetas lo guardamos serializado como String (TEXT)
+// Contenido de recetas serializado como String (JSON)
 model Recipe {
   id        String   @id @default(cuid())
   userId    String
   petId     String?
   title     String
-  planType  String // BREAKFAST|LUNCH|DINNER|DAILY|WEEKLY
-  content   String // JSON serializado
+  planType  String
+  content   String
   createdAt DateTime @default(now())
 
   user     User             @relation(fields: [userId], references: [id])
   pet      Pet?             @relation(fields: [petId], references: [id])
-  feedback RecipeFeedback[] // ✅ inversa de RecipeFeedback.recipe
+  feedback RecipeFeedback[]
 
   @@index([userId])
   @@index([petId])
@@ -197,11 +231,10 @@ model RecipeFeedback {
   recipe Recipe @relation(fields: [recipeId], references: [id])
 }
 
-/// Conteo diario de generaciones de recetas (por usuario y día)
+// Conteo diario de generaciones de recetas (por usuario y día)
 model DailyStat {
   id                    String   @id @default(cuid())
   userId                String
-  /// Clave YYYY-MM-DD en zona America/Santiago
   dateKey               String
   recipesGeneratedCount Int      @default(0)
   createdAt             DateTime @default(now())
@@ -211,7 +244,7 @@ model DailyStat {
   @@unique([userId, dateKey])
 }
 
-/// Recetas guardadas (contenido JSON serializado en String - TEXT)
+// Recetas guardadas (contenido JSON serializado)
 model FavoriteRecipe {
   id          String   @id @default(cuid())
   userId      String
@@ -227,7 +260,7 @@ model FavoriteRecipe {
   @@index([userId])
 }
 
-/// Pagos Webpay Plus
+// Pagos Webpay Plus
 model Payment {
   id        String   @id @default(cuid())
   userId    String
@@ -235,12 +268,37 @@ model Payment {
   sessionId String
   amount    Int
   tbkToken  String?  @unique
-  status    String   @default("INIT") // INIT | AUTHORIZED | FAILED | ABORTED
-  raw       String? // JSON serializado
+  status    String   @default("INIT") // texto
+  raw       String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, status])
+}
+
+// =============================
+// Eventos Analíticos de Uso
+// =============================
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Tipo (LOGIN | RECIPE_GENERATED | FAVORITE_ADDED | PANTRY_ADDED | PET_CREATED | WEIGHT_LOGGED ... texto)
+  type      String
+
+  // Contexto opcional
+  petId     String?
+  city      String?
+  commune   String?
+  device    String?  // WEB/ANDROID/IOS/OTROS en texto
+  meta      String?  // JSON serializado (texto)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, type])
+  @@index([createdAt])
+  @@index([city, commune])
 }

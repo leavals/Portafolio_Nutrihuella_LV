@@ -7,13 +7,14 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import {
   Menu, Search, LogOut, User2, PawPrint, Heart, Utensils, Home, ChefHat, Crown,
+  BarChart3, Shield
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import usePlusUpgrade from '@/hooks/usePlusUpgrade';
 
 type NavItem = { href: string; label: string; Icon: React.ComponentType<any> };
 
-const authNav: NavItem[] = [
+const authNavBase: NavItem[] = [
   { href: '/', label: 'Inicio', Icon: Home },
   { href: '/pets', label: 'Mis mascotas', Icon: PawPrint },
   { href: '/pantry', label: 'Mi despensa', Icon: Utensils },
@@ -23,20 +24,34 @@ const authNav: NavItem[] = [
 
 export default function Navbar() {
   const pathname = usePathname();
-  const { user, plan, isPlus, loading, displayName, logout, isAuthenticated, cancelPlus } = useAuth();
+  const { user, plan, isPlus, loading, displayName, logout, isAuthenticated, cancelPlus, role, isAdmin } = useAuth();
   const { startUpgrade } = usePlusUpgrade();
 
-  const [open, setOpen] = useState(false);
+  // Estados separados para evitar interferencias entre menú móvil y dropdown de cuenta
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   const popRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
       if (!popRef.current) return;
-      if (!popRef.current.contains(e.target as Node)) setOpen(false);
+      if (!popRef.current.contains(e.target as Node)) setAccountOpen(false);
     }
     document.addEventListener('click', onClick);
     return () => document.removeEventListener('click', onClick);
   }, []);
+
+  const isAnalyst = (role || '').toUpperCase() === 'ANALYST';
+
+  // Ítems extra según rol
+  const extraNav: NavItem[] = [];
+  if (isAuthenticated && (isAnalyst || isAdmin)) {
+    extraNav.push({ href: '/analytics', label: 'Analítica', Icon: BarChart3 });
+  }
+  if (isAuthenticated && isAdmin) {
+    extraNav.push({ href: '/admin', label: 'Admin', Icon: Shield });
+  }
+  const authNav = isAuthenticated ? [...authNavBase, ...extraNav] : authNavBase;
 
   return (
     <header className="sticky top-0 z-30 w-full bg-white/80 backdrop-blur border-b border-white/50">
@@ -50,7 +65,9 @@ export default function Navbar() {
             priority
             className="rounded-full"
           />
-          <span className="text-2xl font-semibold tracking-tight">NutriHuella</span>
+        </Link>
+        <Link href="/" className="hidden sm:inline text-2xl font-semibold tracking-tight">
+          NutriHuella
         </Link>
 
         {/* Buscador */}
@@ -108,10 +125,10 @@ export default function Navbar() {
           {loading ? null : isAuthenticated ? (
             <div className="relative" ref={popRef}>
               <button
-                onClick={() => setOpen((v) => !v)}
+                onClick={() => setAccountOpen((v) => !v)}
                 className="flex items-center gap-2 rounded-xl border bg-white/80 hover:bg-white px-2 py-1.5 shadow-sm"
                 aria-haspopup="menu"
-                aria-expanded={open}
+                aria-expanded={accountOpen}
               >
                 <Image
                   src={user?.picture ?? '/nutrihuella/avatar-placeholder.png'}
@@ -124,7 +141,7 @@ export default function Navbar() {
                 <Menu className="h-4 w-4" />
               </button>
 
-              {open && (
+              {accountOpen && (
                 <div
                   role="menu"
                   className="absolute right-0 mt-2 w-56 rounded-xl bg-white/90 backdrop-blur shadow-xl ring-1 ring-black/5 p-1"
@@ -132,22 +149,42 @@ export default function Navbar() {
                   <Link
                     href="/dashboard"
                     className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-slate-100"
-                    onClick={() => setOpen(false)}
+                    onClick={() => setAccountOpen(false)}
                   >
                     <User2 className="h-4 w-4" />
                     Panel
                   </Link>
+                  {(isAnalyst || isAdmin) && (
+                    <Link
+                      href="/analytics"
+                      className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-slate-100"
+                      onClick={() => setAccountOpen(false)}
+                    >
+                      <BarChart3 className="h-4 w-4" />
+                      Analítica
+                    </Link>
+                  )}
+                  {isAdmin && (
+                    <Link
+                      href="/admin"
+                      className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-slate-100"
+                      onClick={() => setAccountOpen(false)}
+                    >
+                      <Shield className="h-4 w-4" />
+                      Admin
+                    </Link>
+                  )}
                   <Link
                     href="/profile"
                     className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-slate-100"
-                    onClick={() => setOpen(false)}
+                    onClick={() => setAccountOpen(false)}
                   >
                     <User2 className="h-4 w-4" />
                     Mi Perfil
                   </Link>
                   <button
                     onClick={() => {
-                      setOpen(false);
+                      setAccountOpen(false);
                       logout();
                     }}
                     className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
@@ -173,8 +210,9 @@ export default function Navbar() {
         {/* Menú (mobile) */}
         <button
           className="md:hidden ml-auto rounded-xl border bg-white/80 px-3 py-2 shadow-sm"
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => setMenuOpen((v) => !v)}
           aria-label="Abrir menú"
+          aria-expanded={menuOpen}
         >
           <Menu className="h-5 w-5" />
         </button>

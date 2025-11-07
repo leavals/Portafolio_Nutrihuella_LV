@@ -18,36 +18,44 @@ export default function AdminUserPage() {
   const [u, setU] = useState<AdminUser | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [banner, setBanner] = useState<string | null>(null);
 
   const [role, setRole] = useState<string>('USER');
   const [plan, setPlan] = useState<'BASIC' | 'PLUS'>('BASIC');
+  const [isSuspended, setIsSuspended] = useState<boolean>(false);
+  const [deactivated, setDeactivated] = useState<boolean>(false);
 
-  useEffect(() => {
-    if (!allowed || loading || !id) return;
-    (async () => {
-      setBusy(true);
-      setErr(null);
-      try {
-        const user = await AdminAPI.getUser(id);
-        setU(user);
-        setRole(String(user.role || 'USER').toUpperCase());
-        setPlan((user.plan || 'BASIC') as 'BASIC' | 'PLUS');
-      } catch (e: any) {
-        setErr(e?.message || 'No se pudo cargar el usuario');
-      } finally {
-        setBusy(false);
-      }
-    })();
-  }, [allowed, loading, id]);
-
-  async function saveBasics() {
-    if (!u) return;
+  async function refresh() {
     setBusy(true);
     setErr(null);
     try {
-      await AdminAPI.updateUser(u.id, { role, plan });
-      const fresh = await AdminAPI.getUser(u.id);
-      setU(fresh);
+      const user = await AdminAPI.getUser(id);
+      setU(user);
+      setRole(String(user.role || 'USER').toUpperCase());
+      setPlan((user.plan || 'BASIC') as 'BASIC' | 'PLUS');
+      setIsSuspended(Boolean(user.isSuspended));
+      setDeactivated(Boolean(user.deactivatedAt));
+    } catch (e: any) {
+      setErr(e?.message || 'No se pudo cargar el usuario');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!allowed || loading || !id) return;
+    void refresh();
+  }, [allowed, loading, id]);
+
+  async function saveAccount() {
+    if (!u) return;
+    setBusy(true);
+    setErr(null);
+    setBanner(null);
+    try {
+      await AdminAPI.updateUser(u.id, { role, plan, isSuspended, deactivated });
+      await refresh();
+      setBanner('Cambios guardados');
     } catch (e: any) {
       setErr(e?.message || 'No se pudo actualizar');
     } finally {
@@ -59,12 +67,34 @@ export default function AdminUserPage() {
     if (!u) return;
     setBusy(true);
     setErr(null);
+    setBanner(null);
     try {
       await AdminAPI.verifyUserEmail(u.id);
-      const fresh = await AdminAPI.getUser(u.id);
-      setU(fresh);
+      await refresh();
+      setBanner('Correo verificado correctamente');
     } catch (e: any) {
       setErr(e?.message || 'No se pudo verificar el email');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function resetPassword() {
+    if (!u) return;
+    const newPassword = prompt('Nueva contraseña temporal (mín. 8 caracteres):');
+    if (!newPassword) return;
+    setBusy(true);
+    setErr(null);
+    setBanner(null);
+    try {
+      const resp = await AdminAPI.resetPassword(u.id, newPassword);
+      if (resp?.error === 'Not Implemented') {
+        setBanner('Endpoint respondió 501: conecta con tu módulo de auth/credenciales.');
+      } else {
+        setBanner('Contraseña restablecida');
+      }
+    } catch (e: any) {
+      setErr(e?.message || 'No se pudo restablecer la contraseña');
     } finally {
       setBusy(false);
     }
@@ -92,19 +122,27 @@ export default function AdminUserPage() {
           {busy && !u ? (
             <p className="text-slate-500">Cargando…</p>
           ) : err ? (
-            <p className="text-red-600">{err}</p>
+            <div className="text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">{err}</div>
           ) : !u ? (
             <p className="text-slate-500">No encontrado</p>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 space-y-4">
-                <div>
-                  <div className="text-sm text-slate-500">Nombre</div>
-                  <div className="text-base font-medium">{u.name || '—'}</div>
-                </div>
-                <div>
-                  <div className="text-sm text-slate-500">Email</div>
-                  <div className="text-base">{u.email}</div>
+              <div className="lg:col-span-2 space-y-5">
+                {banner && (
+                  <div className="text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+                    {banner}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-sm text-slate-500">Nombre</div>
+                    <div className="text-base font-medium">{u.name || '—'}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-slate-500">Email</div>
+                    <div className="text-base">{u.email}</div>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -133,13 +171,32 @@ export default function AdminUserPage() {
                   </div>
                   <div className="flex items-end">
                     <button
-                      onClick={saveBasics}
+                      onClick={saveAccount}
                       disabled={busy}
                       className="btn btn-primary w-full"
                     >
                       Guardar cambios
                     </button>
                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <label className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={isSuspended}
+                      onChange={(e) => setIsSuspended(e.target.checked)}
+                    />
+                    <span>Suspender cuenta</span>
+                  </label>
+                  <label className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={deactivated}
+                      onChange={(e) => setDeactivated(e.target.checked)}
+                    />
+                    <span>Desactivar cuenta</span>
+                  </label>
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -162,6 +219,12 @@ export default function AdminUserPage() {
                       </button>
                     </>
                   )}
+                </div>
+
+                <div>
+                  <button onClick={resetPassword} disabled={busy} className="btn btn-outline w-full sm:w-auto">
+                    Resetear contraseña…
+                  </button>
                 </div>
               </div>
 

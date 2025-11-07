@@ -3,7 +3,11 @@ import { Router } from 'express';
 import { authGuard, requireRole } from '../middleware/auth.middleware.ts';
 import {
   listUsers,
-  getUser,
+  getUserById,
+  updateUserById,
+  verifyEmailById,
+  resetPasswordById,
+  // legacy (compat)
   setRole,
   verifyManually,
   deactivate,
@@ -16,8 +20,15 @@ const r = Router();
 
 r.use(authGuard, requireRole(['ADMIN']));
 
+// Nuevo contrato REST alineado con el frontend
 r.get('/users', listUsers);
-r.get('/users/:id', getUser);
+r.get('/users/:id', getUserById);
+r.patch('/users/:id', updateUserById);
+
+r.post('/users/:id/verify-email', verifyEmailById);
+r.post('/users/:id/reset-password', resetPasswordById);
+
+// Endpoints legacy (mantener temporalmente)
 r.post('/users/role', setRole);
 r.post('/users/verify', verifyManually);
 r.post('/users/deactivate', deactivate);

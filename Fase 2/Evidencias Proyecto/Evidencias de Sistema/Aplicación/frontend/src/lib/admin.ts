@@ -1,3 +1,4 @@
+// src/lib/admin.ts
 "use client";
 
 import api from "@/lib/api";
@@ -13,6 +14,9 @@ export type AdminUser = {
   city?: string | null;
   region?: string | null;
   createdAt?: string;
+  updatedAt?: string;
+  deactivatedAt?: string | null;
+  isSuspended?: boolean | null;
 };
 
 export type AdminUserList = {
@@ -29,11 +33,15 @@ export const AdminAPI = {
     pageSize?: number;
     role?: string;
     plan?: string;
-    verified?: string; // "yes"/"no"
+    verified?: string; // "true"/"false"
     commune?: string;
   }) {
     const qs = new URLSearchParams();
-    if (params.q) qs.set("q", params.q);
+    if (params.q) {
+      qs.set("q", params.q);
+      // compat con back que acepte ?search=
+      qs.set("search", params.q);
+    }
     if (params.page) qs.set("page", String(params.page));
     if (params.pageSize) qs.set("pageSize", String(params.pageSize));
     if (params.role) qs.set("role", params.role);
@@ -47,7 +55,10 @@ export const AdminAPI = {
     return api.get<AdminUser>(`/api/admin/users/${id}`);
   },
 
-  async updateUser(id: string, patch: Partial<AdminUser> & { plan?: "BASIC" | "PLUS"; role?: string }) {
+  async updateUser(
+    id: string,
+    patch: Partial<AdminUser> & { plan?: "BASIC" | "PLUS"; role?: string; isSuspended?: boolean; deactivated?: boolean }
+  ) {
     return api.patch(`/api/admin/users/${id}`, patch);
   },
 
@@ -57,5 +68,5 @@ export const AdminAPI = {
 
   async verifyUserEmail(id: string) {
     return api.post(`/api/admin/users/${id}/verify-email`);
-  }
+  },
 };

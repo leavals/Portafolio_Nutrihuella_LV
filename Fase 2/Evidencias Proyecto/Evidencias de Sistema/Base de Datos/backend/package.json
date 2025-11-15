@@ -14,7 +14,6 @@
     "seed:keep": "cross-env SEED_RESET=1 SEED_KEEP_SPECIAL=1 ts-node prisma/seed.ts",
     "seed:reset": "cross-env SEED_RESET=1 ts-node prisma/seed.ts"
   },
-  
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
@@ -34,7 +33,6 @@
     "zod": "^4.1.8"
   },
   "devDependencies": {
-    "cross-env": "^7.0.3",  
     "@types/bcrypt": "^5.0.2",
     "@types/body-parser": "^1.19.6",
     "@types/cors": "^2.8.19",
@@ -42,7 +40,8 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/morgan": "^1.9.10",
     "@types/multer": "^2.0.0",
-    "@types/node": "^24.5.2",
+    "@types/node": "^24.10.1",
+    "cross-env": "^7.0.3",
     "prisma": "^5.22.0",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
@@ -50,5 +49,3 @@
     "typescript": "^5.9.3"
   }
 }
-
-

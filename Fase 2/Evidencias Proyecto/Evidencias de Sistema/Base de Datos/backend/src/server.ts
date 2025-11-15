@@ -4,6 +4,7 @@ import { env } from "./env.ts";
 import { prisma } from "./services/prisma.ts";
 
 const PORT = Number(env?.PORT ?? process.env.PORT ?? 4000);
+const HOST = env?.HOST ?? process.env.HOST ?? "0.0.0.0"; // ← agregado
 
 let server: any = null;
 
@@ -12,8 +13,9 @@ async function start() {
     await prisma.$connect();
     console.log("✅ Prisma conectado");
 
-    server = app.listen(PORT, () => {
-      console.log(`✅ API escuchando en http://localhost:${PORT}`);
+    // ← ahora bindea en 0.0.0.0 (o lo que venga en HOST)
+    server = app.listen(PORT, HOST, () => {
+      console.log(`✅ API escuchando en http://${HOST}:${PORT}`);
     });
   } catch (e) {
     console.error("❌ Error iniciando servidor:", e);

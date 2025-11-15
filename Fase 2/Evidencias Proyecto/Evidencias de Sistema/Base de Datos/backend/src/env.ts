@@ -17,6 +17,7 @@ const EnvSchema = z.object({
   DATABASE_URL: z.string().min(1, "DATABASE_URL requerido"),
   JWT_SECRET: z.string().min(16, "JWT_SECRET muy corto"),
   PORT: z.coerce.number().default(4000),
+  HOST: z.string().default("0.0.0.0"), // ← agregado
 
   // CORS
   CORS_ORIGIN: z.string().default("http://localhost:3000"),

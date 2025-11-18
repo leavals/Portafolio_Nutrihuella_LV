@@ -51,6 +51,17 @@ export default function RecipeLoadingOverlay() {
     return () => window.removeEventListener('keydown', onKey);
   }, [ui]);
 
+  // Cambio automático de consejo cada 5 segundos mientras el overlay está abierto
+  useEffect(() => {
+    if (!ui.open || tips.length === 0) return;
+
+    const intervalId = window.setInterval(() => {
+      requestNextTip();
+    }, 5000);
+
+    return () => window.clearInterval(intervalId);
+  }, [ui.open, tips]);
+
   const canPortal = useMemo(() => typeof window !== 'undefined', []);
   if (!ui.open || !canPortal) return null;
 

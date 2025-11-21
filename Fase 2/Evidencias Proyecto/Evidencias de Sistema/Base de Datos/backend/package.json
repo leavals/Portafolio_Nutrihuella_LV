@@ -5,6 +5,8 @@
   "private": true,
   "scripts": {
     "dev": "ts-node -r tsconfig-paths/register src/server.ts",
+    "dev:esm": "node --loader ts-node/esm --import ./src/scripts/register-paths.mjs ./src/server.ts",
+    "dev:tsx": "tsx watch ./src/server.ts",
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/server.js",
     "prisma:generate": "prisma generate",
@@ -12,7 +14,12 @@
     "prisma:seed": "prisma db seed",
     "seed": "ts-node prisma/seed.ts",
     "seed:keep": "cross-env SEED_RESET=1 SEED_KEEP_SPECIAL=1 ts-node prisma/seed.ts",
-    "seed:reset": "cross-env SEED_RESET=1 ts-node prisma/seed.ts"
+    "seed:reset": "cross-env SEED_RESET=1 ts-node prisma/seed.ts",
+    "boost": "node --loader ts-node/esm ./src/scripts/boost-analytics-data.ts",
+    "fill-geo": "node --loader ts-node/esm ./src/scripts/fill-geo-missing.ts",
+    "sanity": "node --loader ts-node/esm ./src/scripts/debug-analytics-sanity.ts",
+    "boost:2024": "node --loader ts-node/esm ./src/scripts/boost-analytics-data.ts --year=2024 --users=100 --payments=100 --events=1200",
+    "boost:2025": "node --loader ts-node/esm ./src/scripts/boost-analytics-data.ts --year=2025 --users=100 --payments=100 --events=1200"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -28,7 +35,7 @@
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.1",
     "multer": "^1.4.5-lts.1",
-    "nodemailer": "^6.10.1",
+    "nodemailer": "^7.0.10",
     "transbank-sdk": "^6.1.0",
     "zod": "^4.1.8"
   },

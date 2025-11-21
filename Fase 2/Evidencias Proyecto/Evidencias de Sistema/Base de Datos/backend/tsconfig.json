@@ -16,5 +16,11 @@
       "@/*": ["*"]
     }
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts"],
+
+  /* === AGREGADO: habilita ts-node en modo ESM === */
+  "ts-node": {
+    "esm": true,
+    "transpileOnly": true
+  }
 }

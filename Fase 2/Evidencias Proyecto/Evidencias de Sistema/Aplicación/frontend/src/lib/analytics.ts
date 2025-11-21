@@ -1,11 +1,13 @@
 // src/lib/analytics.ts
 // Wrapper tipado para la UI del dashboard.
+// Incluye endpoints nuevos con datos reales del seed.
 
 "use client";
 import api from "@/lib/api";
 
 export type HeatCell = { day: number; hour: number; value: number };
 
+// ===== Resumen (existente) =====
 export type Summary = {
   totals: {
     users: number;
@@ -33,6 +35,14 @@ export type Summary = {
   };
 };
 
+// ===== Nuevos tipos =====
+export type GrowthByMonth = { month: string; signups: number; plus: number };
+export type DAURow = { date: string; dau: number };
+export type RevenueByMonth = { month: string; revenue: number; arpu: number };
+export type DeviceShare = { device: string; count: number };
+export type FunnelRow = { stage: string; count: number };
+
+// Existentes
 export type UsersByMonth = { month: string; users: number; active: number };
 export type GeoRow = { label: string; count: number; type: "commune" | "region" };
 export type PantryTop = { item: string; count: number };
@@ -48,11 +58,41 @@ async function summary(): Promise<Summary> {
   return await api.get<Summary>("/api/analytics/summary");
 }
 
+// Nuevo: crecimiento por mes (altas vs PLUS)
+async function growthByMonth(year?: number): Promise<GrowthByMonth[]> {
+  const qs = year ? `?year=${year}` : "";
+  return await api.get<GrowthByMonth[]>(`/api/analytics/growth-by-month${qs}`);
+}
+
+// Nuevo: DAU últimos N días
+async function activityDAU(days = 30): Promise<DAURow[]> {
+  const qs = `?days=${days}`;
+  return await api.get<DAURow[]>(`/api/analytics/activity-dau${qs}`);
+}
+
+// Nuevo: ingresos por mes + ARPU
+async function revenueByMonth(year?: number): Promise<RevenueByMonth[]> {
+  const qs = year ? `?year=${year}` : "";
+  return await api.get<RevenueByMonth[]>(`/api/analytics/revenue-by-month${qs}`);
+}
+
+// Nuevo: distribución por dispositivo
+async function devicesShare(days = 90): Promise<DeviceShare[]> {
+  const qs = `?days=${days}`;
+  return await api.get<DeviceShare[]>(`/api/analytics/devices-share${qs}`);
+}
+
+// Nuevo: embudo de activación
+async function activationFunnel(days = 30): Promise<FunnelRow[]> {
+  const qs = `?days=${days}`;
+  return await api.get<FunnelRow[]>(`/api/analytics/activation-funnel${qs}`);
+}
+
+// Existentes (se mantienen para otras secciones)
 async function usersByMonth(year?: number): Promise<UsersByMonth[]> {
   const qs = year ? `?year=${year}` : "";
   const resp = await api.get<any>(`/api/analytics/users-by-month${qs}`);
 
-  // Soporta tanto arreglo [{month,users,active}] como forma {months,signups}
   if (Array.isArray(resp)) {
     return resp.map((r) => ({
       month: String(r.month),
@@ -102,6 +142,11 @@ async function hoursHeatmap(month?: string): Promise<HeatCell[]> {
 
 const AnalyticsAPI = {
   summary,
+  growthByMonth,
+  activityDAU,
+  revenueByMonth,
+  devicesShare,
+  activationFunnel,
   usersByMonth,
   geography,
   pantryTop,
@@ -112,4 +157,16 @@ const AnalyticsAPI = {
 };
 
 export { AnalyticsAPI };
-export type { UsersByMonth, GeoRow, PantryTop, SpeciesRow, RecipesByType, PlusTenure };
+export type {
+  GrowthByMonth,
+  DAURow,
+  RevenueByMonth,
+  DeviceShare,
+  FunnelRow,
+  UsersByMonth,
+  GeoRow,
+  PantryTop,
+  SpeciesRow,
+  RecipesByType,
+  PlusTenure,
+};

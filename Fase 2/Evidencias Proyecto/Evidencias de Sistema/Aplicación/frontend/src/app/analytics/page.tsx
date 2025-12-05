@@ -112,10 +112,7 @@ function SummarySection() {
   return (
     <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
       <KPICard label="Usuarios totales" value={totals.users ?? "…"} />
-      <KPICard
-        label="Activos 7/30/90"
-        value={`${totals.active7 ?? 0}/${totals.active30 ?? 0}/${totals.active90 ?? 0}`}
-      />
+      
       <KPICard label="% PLUS" value={`${plusPct}%`} />
       <KPICard label="% BASIC" value={`${basicPct}%`} />
       <KPICard
